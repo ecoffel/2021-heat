@@ -16,7 +16,7 @@ dirAgData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edc
 dirHeat = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 dirEra5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F20/ERA5'
 
-maxVar = 'tw'
+maxVar = 'mx2t'
 
 year = int(sys.argv[1])
 
