@@ -39,13 +39,21 @@ def findConsec(data):
             ptList.append(ptCur)
     return ptList
 
-era5_max_quantiles = xr.open_dataset('%s/era5_tw_max_quantiles.nc'%dirHeatData)
-lat = era5_max_quantiles.latitude.values
-lon = era5_max_quantiles.longitude.values
+era5_tw_deciles = xr.open_dataset('%s/era5_tw_max_deciles.nc'%dirHeatData)
+era5_tw_deciles.load()
+era5_tw_deciles_values = era5_tw_deciles.tw.values.copy()
+
+era5_tx_deciles = xr.open_dataset('%s/era5_tasmax_deciles.nc'%dirHeatData)
+era5_tx_deciles.load()
+era5_tx_deciles['mx2t'] -= 273.15
+era5_tx_deciles_values = era5_tx_deciles.mx2t.values.copy()
+
+percentile_bins = era5_tw_deciles['quantile'].values
+
+lat = era5_tw_deciles.latitude.values
+lon = era5_tw_deciles.longitude.values
 
 year = int(sys.argv[1])
-
-# region = 'eu'
 
 wave_days_tw_max = np.full([lat.size, lon.size, 3], np.nan)
 wave_days_inds_tw_max = np.nan
@@ -75,65 +83,89 @@ with open('%s/heat-wave-days/full-year/era5_tw_heat_wave_days_all_values_full_ye
     cur_tw_heatwave_days_values = pickle.load(f)
     wave_days_values_tw_max = np.array(cur_tw_heatwave_days_values, dtype=object)
 
-
-
-# if region == 'eu':
-#     lat_inds = np.where((lat < 55) & (lat >= 30))[0]
-#     lon_inds = np.where((lon < 60) & (lon >= 0))[0]
-# elif region == 'nh-midlat':
-#     lat_inds = np.where((lat < 55) & (lat >= 30))[0]
-#     lon_inds = np.where((lon <= 360) & (lon >= 0))[0]
-# elif region == 'tropics':
-#     lat_inds = np.where((lat < 15) & (lat >= -15))[0]
-#     lon_inds = np.where((lon <= 360) & (lon >= 0))[0]
     
 lat_inds = np.arange(lat.size)
 lon_inds = np.arange(lon.size)
-    
-for wave_len in [3, 5, 7]:
+
+N_gridcell = lat.size*lon.size
+
+for wave_len in [3]:
 
     wave_min_len = wave_len
-    wave_max_len = wave_len
+    wave_max_len = 10
 
-    for q in [0, 1, 2]:
+    for q in [1]:
         print('len = %d / q = %d'%(wave_len, q))
 
         waveInds_tw = {}
         waveVals_tw = {}
+        wavePerc_tw = {}
         waveVals_tx_during_tw = {}
+        wavePerc_tx_during_tw = {}
 
         waveInds_tx = {}
         waveVals_tx = {}
+        wavePerc_tx = {}
         waveVals_tw_during_tx = {}
+        wavePerc_tw_during_tx = {}
 
         dayoffset_tw = {} 
         dayoffset_tx_during_tw = {} 
         dayoffset_tx = {} 
         dayoffset_tw_during_tx = {} 
+        
+        dayoffset_perc_tw = {} 
+        dayoffset_perc_tx_during_tw = {} 
+        dayoffset_perc_tx = {} 
+        dayoffset_perc_tw_during_tx = {} 
 
+        n = 0
+        
         for xlat in lat_inds:
             waveInds_tw[xlat] = {}
             waveVals_tw[xlat] = {}
+            wavePerc_tw[xlat] = {}
             waveVals_tx_during_tw[xlat] = {}
+            wavePerc_tx_during_tw[xlat] = {}
 
             waveInds_tx[xlat] = {}
             waveVals_tx[xlat] = {}
+            wavePerc_tx[xlat] = {}
             waveVals_tw_during_tx[xlat] = {}
+            wavePerc_tw_during_tx[xlat] = {}
             
             dayoffset_tw[xlat] = {} 
             dayoffset_tx_during_tw[xlat] = {} 
             dayoffset_tx[xlat] = {} 
             dayoffset_tw_during_tx[xlat] = {} 
 
+            dayoffset_perc_tw[xlat] = {} 
+            dayoffset_perc_tx_during_tw[xlat] = {} 
+            dayoffset_perc_tx[xlat] = {} 
+            dayoffset_perc_tw_during_tx[xlat] = {} 
+            
             for ylon in lon_inds:
                 
                 waveInds_tw[xlat][ylon] = []
                 waveVals_tw[xlat][ylon] = []
+                wavePerc_tw[xlat][ylon] = []
                 waveVals_tx_during_tw[xlat][ylon] = []
+                wavePerc_tx_during_tw[xlat][ylon] = []
 
                 waveInds_tx[xlat][ylon] = []
                 waveVals_tx[xlat][ylon] = []
+                wavePerc_tx[xlat][ylon] = []
                 waveVals_tw_during_tx[xlat][ylon] = []
+                wavePerc_tw_during_tx[xlat][ylon] = []
+                
+                # get current grid cell cutoffs for tw and tx
+                tw_deciles = era5_tw_deciles_values[:, xlat, ylon]
+                tx_deciles = era5_tx_deciles_values[:, xlat, ylon]
+                
+                if n % 100000 == 0:
+                    print('%.1f%%'%(n/(lat.size*lon.size)*100))
+                
+                n += 1
                 
                 curInds_tw = wave_days_inds_tw_max[xlat, ylon, q]
                 if len(curInds_tw) > 0:
@@ -142,7 +174,24 @@ for wave_len in [3, 5, 7]:
                         if wave[1]-wave[0]+1 >= wave_min_len and wave[1]-wave[0]+1 <= wave_max_len:
                             waveVals_tw[xlat][ylon].append(wave_days_values_tw_max[xlat, ylon, q][0][curInds_tw[0][wave[0]:wave[1]+1]])
                             waveVals_tx_during_tw[xlat][ylon].append(wave_days_values_tx_max[xlat, ylon, q][0][curInds_tw[0][wave[0]:wave[1]+1]])
-
+                            
+                            wave_tw_perc_vals = []
+                            wave_tx_during_tw_perc_vals = []
+                            
+                            # find tw closest deciles
+                            for d, day_val in enumerate(wave_days_values_tw_max[xlat, ylon, q][0][curInds_tw[0][wave[0]:wave[1]+1]]):
+                                dec_ind = np.where((abs(day_val-tw_deciles) == np.nanmin(abs(day_val-tw_deciles))))[0]
+                                if dec_ind.size > 0:
+                                    wave_tw_perc_vals.append(percentile_bins[dec_ind])
+                            wavePerc_tw[xlat][ylon].append(wave_tw_perc_vals)
+                            
+                            for d, day_val in enumerate(wave_days_values_tx_max[xlat, ylon, q][0][curInds_tw[0][wave[0]:wave[1]+1]]):
+                                dec_ind = np.where((abs(day_val-tx_deciles) == np.nanmin(abs(day_val-tx_deciles))))[0]
+                                if dec_ind.size > 0:
+                                    wave_tx_during_tw_perc_vals.append(percentile_bins[dec_ind])
+                            wavePerc_tx_during_tw[xlat][ylon].append(wave_tx_during_tw_perc_vals)
+                            
+                            
                 curInds_tx = wave_days_inds_tx_max[xlat, ylon, q]
                 if len(curInds_tx) > 0:
                     waves_tx = findConsec(curInds_tx[0])
@@ -150,26 +199,56 @@ for wave_len in [3, 5, 7]:
                         if wave[1]-wave[0]+1 >= wave_min_len and wave[1]-wave[0]+1 <= wave_max_len:
                             waveVals_tx[xlat][ylon].append(wave_days_values_tx_max[xlat, ylon, q][0][curInds_tx[0][wave[0]:wave[1]+1]])
                             waveVals_tw_during_tx[xlat][ylon].append(wave_days_values_tw_max[xlat, ylon, q][0][curInds_tx[0][wave[0]:wave[1]+1]])
+                            
+                            wave_tx_perc_vals = []
+                            wave_tw_during_tx_perc_vals = []
+                            
+                            # find tw closest deciles
+                            for d, day_val in enumerate(wave_days_values_tx_max[xlat, ylon, q][0][curInds_tx[0][wave[0]:wave[1]+1]]):
+                                dec_ind = np.where((abs(day_val-tx_deciles) == np.nanmin(abs(day_val-tx_deciles))))[0]
+                                if dec_ind.size > 0:
+                                    wave_tx_perc_vals.append(percentile_bins[dec_ind])
+                            wavePerc_tx[xlat][ylon].append(wave_tx_perc_vals)
+                            
+                            for d, day_val in enumerate(wave_days_values_tw_max[xlat, ylon, q][0][curInds_tx[0][wave[0]:wave[1]+1]]):
+                                dec_ind = np.where((abs(day_val-tw_deciles) == np.nanmin(abs(day_val-tw_deciles))))[0]
+                                if dec_ind.size > 0:
+                                    wave_tw_during_tx_perc_vals.append(percentile_bins[dec_ind])
+                            wavePerc_tw_during_tx[xlat][ylon].append(wave_tw_during_tx_perc_vals)
 
                 
                 waveVals_tw[xlat][ylon] = np.array([np.array(x) for x in waveVals_tw[xlat][ylon]])
+                wavePerc_tw[xlat][ylon] = np.array([np.array(x) for x in wavePerc_tw[xlat][ylon]])
                 waveVals_tx_during_tw[xlat][ylon] = np.array([np.array(x) for x in waveVals_tx_during_tw[xlat][ylon]])
+                wavePerc_tx_during_tw[xlat][ylon] = np.array([np.array(x) for x in wavePerc_tx_during_tw[xlat][ylon]])
+                
                 waveVals_tx[xlat][ylon] = np.array([np.array(x) for x in waveVals_tx[xlat][ylon]])
+                wavePerc_tx[xlat][ylon] = np.array([np.array(x) for x in wavePerc_tx[xlat][ylon]])
                 waveVals_tw_during_tx[xlat][ylon] = np.array([np.array(x) for x in waveVals_tw_during_tx[xlat][ylon]])
-
+                wavePerc_tw_during_tx[xlat][ylon] = np.array([np.array(x) for x in wavePerc_tw_during_tx[xlat][ylon]])
 
                 dayoffset_tw[xlat][ylon] = np.full([waveVals_tw[xlat][ylon].shape[0], wave_max_len], np.nan)
                 dayoffset_tx_during_tw[xlat][ylon] = np.full([waveVals_tw[xlat][ylon].shape[0], wave_max_len], np.nan)
                 dayoffset_tx[xlat][ylon] = np.full([waveVals_tx[xlat][ylon].shape[0], wave_max_len], np.nan)
                 dayoffset_tw_during_tx[xlat][ylon] = np.full([waveVals_tx[xlat][ylon].shape[0], wave_max_len], np.nan)
 
+                dayoffset_perc_tw[xlat][ylon] = np.full([wavePerc_tw[xlat][ylon].shape[0], wave_max_len], np.nan)
+                dayoffset_perc_tx_during_tw[xlat][ylon] = np.full([wavePerc_tw[xlat][ylon].shape[0], wave_max_len], np.nan)
+                dayoffset_perc_tx[xlat][ylon] = np.full([wavePerc_tx[xlat][ylon].shape[0], wave_max_len], np.nan)
+                dayoffset_perc_tw_during_tx[xlat][ylon] = np.full([wavePerc_tx[xlat][ylon].shape[0], wave_max_len], np.nan)
+
                 for w in range(waveVals_tw[xlat][ylon].shape[0]):
+                    # subtract value for 1st day of heat wave to get departures from the 1st day val
                     waveVals_tw[xlat][ylon][w] = np.array([x-waveVals_tw[xlat][ylon][w][0] for x in waveVals_tw[xlat][ylon][w]])
                     waveVals_tx_during_tw[xlat][ylon][w] = np.array([x-waveVals_tx_during_tw[xlat][ylon][w][0] for x in waveVals_tx_during_tw[xlat][ylon][w]])
+                    
                     for i in range(dayoffset_tw[xlat][ylon].shape[1]):
                         if len(waveVals_tw[xlat][ylon][w]) > i:
                             dayoffset_tw[xlat][ylon][w, i] = waveVals_tw[xlat][ylon][w][i]
                             dayoffset_tx_during_tw[xlat][ylon][w, i] = waveVals_tx_during_tw[xlat][ylon][w][i]
+                            
+                            dayoffset_perc_tw[xlat][ylon][w, i] = wavePerc_tw[xlat][ylon][w][i]
+                            dayoffset_perc_tx_during_tw[xlat][ylon][w, i] = wavePerc_tx_during_tw[xlat][ylon][w][i]
 
                 for w in range(waveVals_tx[xlat][ylon].shape[0]):
                     waveVals_tx[xlat][ylon][w] = np.array([x-waveVals_tx[xlat][ylon][w][0] for x in waveVals_tx[xlat][ylon][w]])
@@ -178,24 +257,45 @@ for wave_len in [3, 5, 7]:
                         if len(waveVals_tx[xlat][ylon][w]) > i:
                             dayoffset_tx[xlat][ylon][w, i] = waveVals_tx[xlat][ylon][w][i]
                             dayoffset_tw_during_tx[xlat][ylon][w, i] = waveVals_tw_during_tx[xlat][ylon][w][i]
+                            
+                            dayoffset_perc_tx[xlat][ylon][w, i] = wavePerc_tx[xlat][ylon][w][i]
+                            dayoffset_perc_tw_during_tx[xlat][ylon][w, i] = wavePerc_tw_during_tx[xlat][ylon][w][i]
 
                 dayoffset_tx[xlat][ylon] = np.array(dayoffset_tx[xlat][ylon])
                 dayoffset_tw_during_tx[xlat][ylon] = np.array(dayoffset_tw_during_tx[xlat][ylon])
+                
+                dayoffset_perc_tx[xlat][ylon] = np.array(dayoffset_perc_tx[xlat][ylon])
+                dayoffset_perc_tw_during_tx[xlat][ylon] = np.array(dayoffset_perc_tw_during_tx[xlat][ylon])
 
                 dayoffset_tw[xlat][ylon] = np.array(dayoffset_tw[xlat][ylon])
                 dayoffset_tx_during_tw[xlat][ylon] = np.array(dayoffset_tx_during_tw[xlat][ylon])
-
                 
+                dayoffset_perc_tw[xlat][ylon] = np.array(dayoffset_perc_tw[xlat][ylon])
+                dayoffset_perc_tx_during_tw[xlat][ylon] = np.array(dayoffset_perc_tx_during_tw[xlat][ylon])
+        
         print('writing tx...')
-        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tx_global_%d_%d_%d'%(dirHeatData, wave_len, q, year), 'wb') as f:
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tx_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
             pickle.dump(dayoffset_tx, f)
         print('writing tw during tx...')
-        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tw_during_tx_global_%d_%d_%d'%(dirHeatData, wave_len, q, year), 'wb') as f:
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tw_during_tx_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
             pickle.dump(dayoffset_tw_during_tx, f)
         print('writing tw...')
-        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tw_global_%d_%d_%d'%(dirHeatData, wave_len, q, year), 'wb') as f:
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tw_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
             pickle.dump(dayoffset_tw, f)
         print('writing tx during tw...')
-        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tx_during_tw_global_%d_%d_%d'%(dirHeatData, wave_len, q, year), 'wb') as f:
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_tx_during_tw_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
             pickle.dump(dayoffset_tx_during_tw, f)
+            
+        print('writing tx perc...')
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_perc_tx_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
+            pickle.dump(dayoffset_perc_tx, f)
+        print('writing tw during tx perc...')
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_perc_tw_during_tx_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
+            pickle.dump(dayoffset_perc_tw_during_tx, f)
+        print('writing tw perc...')
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_perc_tw_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
+            pickle.dump(dayoffset_perc_tw, f)
+        print('writing tx during tw perc...')
+        with open('%s/heat-wave-days/hw-dayoffset/dayoffset_perc_tx_during_tw_global_%d_%d_%d_%d'%(dirHeatData, wave_min_len, wave_max_len, q, year), 'wb') as f:
+            pickle.dump(dayoffset_perc_tx_during_tw, f)
 
