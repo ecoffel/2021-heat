@@ -65,23 +65,11 @@ wave_days_values_tx_max = np.nan
 
 print(year)
 
-with open('%s/heat-wave-days/full-year/era5_mx2t_heat_wave_days_full_year_%d.dat'%(dirHeatData, year), 'rb') as f:
-    cur_tx_heatwave_days = pickle.load(f)
-    wave_days_tx_max = cur_tx_heatwave_days
 with open('%s/heat-wave-days/full-year/era5_mx2t_heat_wave_days_ind_full_year_%d.dat'%(dirHeatData, year), 'rb') as f:
     wave_days_inds_tx_max = pickle.load(f)
-with open('%s/heat-wave-days/full-year/era5_mx2t_heat_wave_days_all_values_full_year_%d.dat'%(dirHeatData, year), 'rb') as f:
-    cur_tx_heatwave_days_values = pickle.load(f)
-    wave_days_values_tx_max = np.array(cur_tx_heatwave_days_values, dtype=object)
 
-with open('%s/heat-wave-days/full-year/era5_tw_heat_wave_days_full_year_%d.dat'%(dirHeatData, year), 'rb') as f:
-    cur_tw_heatwave_days = pickle.load(f)
-    wave_days_tw_max = cur_tw_heatwave_days
 with open('%s/heat-wave-days/full-year/era5_tw_heat_wave_days_ind_full_year_%d.dat'%(dirHeatData, year), 'rb') as f:
     wave_days_inds_tw_max = pickle.load(f)
-with open('%s/heat-wave-days/full-year/era5_tw_heat_wave_days_all_values_full_year_%d.dat'%(dirHeatData, year), 'rb') as f:
-    cur_tw_heatwave_days_values = pickle.load(f)
-    wave_days_values_tw_max = np.array(cur_tw_heatwave_days_values, dtype=object)
 
     
 lat_inds = np.arange(lat.size)
@@ -182,13 +170,13 @@ for wave_len in [3]:
                             for d, day_val in enumerate(wave_days_values_tw_max[xlat, ylon, q][0][curInds_tw[0][wave[0]:wave[1]+1]]):
                                 dec_ind = np.where((abs(day_val-tw_deciles) == np.nanmin(abs(day_val-tw_deciles))))[0]
                                 if dec_ind.size > 0:
-                                    wave_tw_perc_vals.append(percentile_bins[dec_ind])
+                                    wave_tw_perc_vals.append(percentile_bins[dec_ind[0]])
                             wavePerc_tw[xlat][ylon].append(wave_tw_perc_vals)
                             
                             for d, day_val in enumerate(wave_days_values_tx_max[xlat, ylon, q][0][curInds_tw[0][wave[0]:wave[1]+1]]):
                                 dec_ind = np.where((abs(day_val-tx_deciles) == np.nanmin(abs(day_val-tx_deciles))))[0]
                                 if dec_ind.size > 0:
-                                    wave_tx_during_tw_perc_vals.append(percentile_bins[dec_ind])
+                                    wave_tx_during_tw_perc_vals.append(percentile_bins[dec_ind[0]])
                             wavePerc_tx_during_tw[xlat][ylon].append(wave_tx_during_tw_perc_vals)
                             
                             
@@ -207,13 +195,13 @@ for wave_len in [3]:
                             for d, day_val in enumerate(wave_days_values_tx_max[xlat, ylon, q][0][curInds_tx[0][wave[0]:wave[1]+1]]):
                                 dec_ind = np.where((abs(day_val-tx_deciles) == np.nanmin(abs(day_val-tx_deciles))))[0]
                                 if dec_ind.size > 0:
-                                    wave_tx_perc_vals.append(percentile_bins[dec_ind])
+                                    wave_tx_perc_vals.append(percentile_bins[dec_ind[0]])
                             wavePerc_tx[xlat][ylon].append(wave_tx_perc_vals)
                             
                             for d, day_val in enumerate(wave_days_values_tw_max[xlat, ylon, q][0][curInds_tx[0][wave[0]:wave[1]+1]]):
                                 dec_ind = np.where((abs(day_val-tw_deciles) == np.nanmin(abs(day_val-tw_deciles))))[0]
                                 if dec_ind.size > 0:
-                                    wave_tw_during_tx_perc_vals.append(percentile_bins[dec_ind])
+                                    wave_tw_during_tx_perc_vals.append(percentile_bins[dec_ind[0]])
                             wavePerc_tw_during_tx[xlat][ylon].append(wave_tw_during_tx_perc_vals)
 
                 
