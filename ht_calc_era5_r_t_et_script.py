@@ -38,11 +38,11 @@ dirAg6 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoff
 
 # dirEra5 = '/dartfs-hpc/rc/lab/C/CMIG/ERA5'
 
-#1979-1989
-#1989-1999
-#1999-2009
-#2009-2019
-years = [1979, 1989]
+#1981-1990
+#1990-2000
+#2000-2010
+#2010-2018
+years = [1981, 2018]
 
 sacksMaizeNc = xr.open_dataset('%s/sacks/Maize.crop.calendar.fill.nc'%dirAgData)
 sacksStart = sacksMaizeNc['plant'].values
@@ -58,17 +58,15 @@ sacksLon = np.linspace(0, 360, 720)
 
 # calc era5 quantiles
 ds_tasmax = xr.open_mfdataset('%s/monthly/tasmax_*.nc'%(dirEra5))
-ds_tasmax.load()
 ds_tasmax['mx2t'] -= 273.15
 
 ds_evap = xr.open_mfdataset('%s/monthly/evapotranspiration_monthly_*.nc'%(dirEra5Land))
-ds_evap.load()
 ds_evap['e'] *= -1
 
 ds_tasmax = ds_tasmax.sel(time=slice('%d'%years[0],'%d'%years[1]))
 ds_evap = ds_evap.sel(time=slice('%d'%years[0],'%d'%years[1]))
-
-
+ds_tasmax.load()
+ds_evap.load()
 
 ds_evap = ds_evap.rename_dims(latitude='lat', longitude='lon')
 ds_evap = ds_evap.rename({'latitude':'lat', 'longitude':'lon'})
@@ -100,8 +98,8 @@ def is_growing_season(month, sacks_start, sacks_end):
     else:
         return (month >= sacks_start) | (month <= sacks_end)
     
-# with open('%s/cropped_area/crop_land_regrid_era5.dat'%(dirAg6), 'rb') as f:
-#     crop_ha_regrid = pickle.load(f)
+with open('%s/cropped_area/crop_land_regrid_era5.dat'%(dirAg6), 'rb') as f:
+    crop_ha_regrid = pickle.load(f)
 
 nnLen = lat.size*lat.size
 
@@ -116,7 +114,7 @@ for xlat in range(len(lat)):
         if n % 50000 == 0:
                 print('%.1f %% complete'%(n/(nnLen)*100))
                 
-        if ~np.isnan(sacksStart_regrid[xlat, ylon]) and ~np.isnan(sacksEnd_regrid[xlat, ylon]):# and crop_ha_regrid[xlat, ylon] > 0:
+        if ~np.isnan(sacksStart_regrid[xlat, ylon]) and ~np.isnan(sacksEnd_regrid[xlat, ylon]) and crop_ha_regrid[xlat, ylon] > 0:
 
             
             
@@ -146,4 +144,4 @@ ds_grow_r_t_et['r_t_et'] = da_grow_r_t_et
 
 
 print('saving netcdf...')
-ds_grow_r_t_et.to_netcdf('r_t_et_era5_not_crop_restricted_%d_%d.nc'%(years[0], years[1]))
+ds_grow_r_t_et.to_netcdf('r_t_et_era5_crop_restricted_%d_%d.nc'%(years[0], years[1]))
