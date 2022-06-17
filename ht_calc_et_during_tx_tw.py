@@ -43,7 +43,7 @@ print('loading percentile data')
 if ref_var == 'tw':
     era5_hw_deciles = xr.open_dataset('%s/era5_tw_max_deciles.nc'%dirHeatData)
     era5_hw_deciles.load()
-    era5_hw_deciles_values = era5_tw_deciles.tw.values.copy()
+    era5_hw_deciles_values = era5_hw_deciles.tw.values.copy()
     
     print('loading tw')
     era5_hw = xr.open_dataset('%s/daily/tw_max_%d.nc'%(dirEra5, year))
@@ -64,16 +64,17 @@ percentile_bins = era5_hw_deciles['quantile'].values
 lat = era5_hw_deciles.latitude.values
 lon = era5_hw_deciles.longitude.values
 
-
-
 # load et
 print('loading et')
 era5_et_deciles = xr.open_dataset('%s/era5_evaporation_deciles.nc'%dirHeatData)
 era5_et_deciles.load()
-era5_et_deciles_values = era5_et_deciles.e.values.copy()
+
 
 era5_et = xr.open_dataset('%s/daily/evaporation_%d.nc'%(dirEra5, year))
 era5_et.load()
+
+
+era5_et_deciles_values = era5_et_deciles.e.values.copy()
 
 # find tx when tw > 95p
 threshold_perc = 95
@@ -105,7 +106,6 @@ regridder_end = xe.Regridder(xr.DataArray(data=sacksEnd, dims=['lat', 'lon'], co
 
 sacksStart_regrid = regridder_start(sacksStart)
 sacksEnd_regrid = regridder_end(sacksEnd)
-
 
 
 n = 0
@@ -149,7 +149,7 @@ for xlat in lat_inds:
             cur_hw_p[d] = percentile_bins[cur_p_ind]
             
             cur_p_ind = abs(et_deciles-et_val).argmin()
-            cur_et_p[d] = percentile_bins[cur_p_ind]
+            cur_et_p[d] = 1-percentile_bins[cur_p_ind]
             
             
         
@@ -157,8 +157,8 @@ for xlat in lat_inds:
         hw_exceed_ind = np.where((100*cur_hw_p >= threshold_perc))[0]
         # mean tx on those days
         et_during_hw[xlat, ylon] = np.nanmean(cur_et_p[hw_exceed_ind])
+        
                 
-
 print('writing files...')
 with open('%s/heat-wave-days/et-on-%s/era5_et_on_%s_%d.dat'%(dirHeatData, ref_var, ref_var, year), 'wb') as f:
     pickle.dump(et_during_hw, f)
