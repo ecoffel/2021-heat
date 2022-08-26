@@ -6,187 +6,183 @@ import scipy
 import statsmodels.api as sm
 import cartopy
 import cartopy.crs as ccrs
+import cartopy.util
 import glob
-import sys, os
+import sys, os, pickle
 import datetime
 
 dirCmip6 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F20/CMIP6'
 dirERA5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Data-edcoffel-F20/ERA5'
 dirSacks = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/ag-land-climate'
-
+dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 cmip6_models = ['bcc-csm2-mr', 'bcc-esm1', 'canesm5', \
                 'kace-1-0-g', 'ipsl-cm6a-lr', 'miroc6', \
                 'mri-esm2-0', 'noresm2-lm']
 
-region = 'global'
-crop = 'Maize'
 model = sys.argv[1]
-var_soil = 'evspsblsoi'
-var_canopy = 'evspsblveg'
-var_tran = 'tran'
 
-if region == 'global':
-    latRange = [-90, 90]
-    lonRange = [0, 360]
-elif region == 'us':
-    latRange = [20, 55]
-    lonRange = [220, 300]
+yearRange = np.arange(1981, 2014+1)
+threshold_perc = 95
 
-sacksMaizeNc = xr.open_dataset('%s/sacks/%s.crop.calendar.fill.nc'%(dirSacks, crop))
-sacksStart = sacksMaizeNc['plant'].values
-sacksStart = np.roll(sacksStart, -int(sacksStart.shape[1]/2), axis=1)
-sacksStart[sacksStart < 0] = np.nan
-sacksEnd = sacksMaizeNc['harvest'].values
-sacksEnd = np.roll(sacksEnd, -int(sacksEnd.shape[1]/2), axis=1)
-sacksEnd[sacksEnd < 0] = np.nan
+def in_time_range(y, year_target):
+    return (y == year_target)
 
-sacksLat = np.linspace(90, -90, 360)
-sacksLon = np.linspace(0, 360, 720)
-    
-def in_time_range(y):
-    return (y >= 1981) & (y <= 2014)
-
-
-print('opening %s...'%model)
-cmip6_evapsoi_hist = xr.open_mfdataset('%s/%s/r1i1p1f1/historical/%s/%s_Lmon_*.nc'%(dirCmip6, model, var_soil, var_soil), concat_dim='time')
-cmip6_evapveg_hist = xr.open_mfdataset('%s/%s/r1i1p1f1/historical/%s/%s_Lmon_*.nc'%(dirCmip6, model, var_canopy, var_canopy), concat_dim='time')
-cmip6_tran_hist = xr.open_mfdataset('%s/%s/r1i1p1f1/historical/%s/%s_Lmon_*.nc'%(dirCmip6, model, var_tran, var_tran), concat_dim='time')
+print('opening tw')
+cmip6_tw = xr.open_mfdataset('%s/%s/r1i1p1f1/historical/tw/tw_*.nc'%(dirCmip6, model), concat_dim='time')
 
 print('opening temp')
-cmip6_temp_hist = xr.open_mfdataset('%s/%s/%s/%s/%s/*_day_*.nc'%(dirCmip6, model, 'r1i1p1f1', 'historical', 'tasmax'), concat_dim='time')
+cmip6_tx = xr.open_mfdataset('%s/%s/r1i1p1f1/historical/tasmax/tasmax*day*.nc'%(dirCmip6, model), concat_dim='time')
+
+print('loading percentile data')
+cmip6_tw_deciles = xr.open_dataset('cmip6_quantiles/tw_quantiles_%s.nc'%(model))
+cmip6_tw_deciles.load()
+cmip6_tw_deciles_values = cmip6_tw_deciles.tw.values
+
+cmip6_tx_deciles = xr.open_dataset('cmip6_quantiles/tasmax_quantiles_%s.nc'%(model))
+cmip6_tx_deciles.load()
+cmip6_tx_deciles_values = cmip6_tx_deciles.tasmax.values
 
 
-print('selecting data for %s...'%model)
-cmip6_evapsoi_hist = cmip6_evapsoi_hist.sel(time=in_time_range(cmip6_evapsoi_hist['time.year']))
-cmip6_evapveg_hist = cmip6_evapveg_hist.sel(time=in_time_range(cmip6_evapveg_hist['time.year']))
-cmip6_tran_hist = cmip6_tran_hist.sel(time=in_time_range(cmip6_tran_hist['time.year']))
+newLat = np.arange(-90, 90, 1.5)
+newLon = np.arange(0, 360, 1.5)
 
-print('selecting temp')
-cmip6_temp_hist = cmip6_temp_hist.sel(time=in_time_range(cmip6_temp_hist['time.year']))
-
-print('resampling temp')
-cmip6_temp_hist = cmip6_temp_hist.resample(time='1M').mean()
-
-print('loading')
-cmip6_evapsoi_hist.load()
-cmip6_evapveg_hist.load()
-cmip6_tran_hist.load()
-cmip6_temp_hist.load()
-cmip6_temp_hist['tasmax'] -= 273.15
+# regrid sacks data
+regridMesh = xr.Dataset({'lat': (['lat'], newLat),
+                         'lon': (['lon'], newLon),})
 
 
-cmip6_ET_hist = cmip6_evapsoi_hist.evspsblsoi + cmip6_evapveg_hist.evspsblveg + cmip6_tran_hist.tran
+for year in yearRange:
 
-# regrid sacks data to current model res
-regridMesh_cur_model = xr.Dataset({'lat': (['lat'], cmip6_evapsoi_hist.lat),
-                                   'lon': (['lon'], cmip6_evapsoi_hist.lon)})
+    cmip6_tx_cur_year = cmip6_tx.tasmax.sel(time=in_time_range(cmip6_tx['time.year'], year))
+    cmip6_tw_cur_year = cmip6_tw.tw.sel(time=in_time_range(cmip6_tw['time.year'], year))
 
-regridder_start = xe.Regridder(xr.DataArray(data=sacksStart, dims=['lat', 'lon'], coords={'lat':sacksLat, 'lon':sacksLon}), regridMesh_cur_model, 'bilinear', reuse_weights=True)
-regridder_end = xe.Regridder(xr.DataArray(data=sacksEnd, dims=['lat', 'lon'], coords={'lat':sacksLat, 'lon':sacksLon}), regridMesh_cur_model, 'bilinear', reuse_weights=True)
-
-sacksStart_regrid = regridder_start(sacksStart)
-sacksEnd_regrid = regridder_end(sacksEnd)
-
-# convert sacks day to month
-for xlat in range(sacksStart_regrid.shape[0]):
-    for ylon in range(sacksStart_regrid.shape[1]):
-        
-        if not np.isnan(sacksStart_regrid[xlat, ylon]):
-            curStart = datetime.datetime.strptime('2020%d'%(round(sacksStart_regrid[xlat, ylon])+1), '%Y%j').date().month
-            sacksStart_regrid[xlat, ylon] = curStart-1
-            
-        if not np.isnan(sacksEnd_regrid[xlat, ylon]):
-            curEnd = datetime.datetime.strptime('2020%d'%(round(sacksEnd_regrid[xlat, ylon])+1), '%Y%j').date().month
-            sacksEnd_regrid[xlat, ylon] = curEnd-1
-
-
-
-# count up all non-nan grid cells so we can estimate percent complete 
-ngrid = 0
-for xlat in range(cmip6_evapsoi_hist.lat.size):
-    for ylon in range(cmip6_evapsoi_hist.lon.size):
-        if ~np.isnan(sacksStart_regrid[xlat, ylon]) and ~np.isnan(sacksEnd_regrid[xlat, ylon]):
-            ngrid += 1
-
-            
-            
-yearly_groups = cmip6_evapsoi_hist.groupby('time.year').groups
-yearly_grow_evap = np.full([2014-1981+1, cmip6_evapsoi_hist.lat.size, cmip6_evapsoi_hist.lon.size], np.nan)
-yearly_grow_temp = np.full([2014-1981+1, cmip6_evapsoi_hist.lat.size, cmip6_evapsoi_hist.lon.size], np.nan)
-cmip6_r_t_et = np.full([cmip6_evapsoi_hist.lat.size, cmip6_evapsoi_hist.lon.size], np.nan)
-            
-n = 0
-for xlat in range(cmip6_evapsoi_hist.lat.size):
+    print('loading year %d'%year)
+    cmip6_tx_cur_year.load()
+    cmip6_tx_cur_year -= 273.15
+    cmip6_tw_cur_year.load()
     
-    for ylon in range(cmip6_evapsoi_hist.lon.size):
+    percentile_bins = cmip6_tw_deciles['quantile'].values
 
-        if ~np.isnan(sacksStart_regrid[xlat, ylon]) and ~np.isnan(sacksEnd_regrid[xlat, ylon]):
-            
-            if n % 100 == 0:
-                print('%.2f%%'%(n/ngrid*100))
+    tx_during_tw = np.full([cmip6_tx.lat.size, cmip6_tx.lon.size], np.nan)
+    tw_during_tx = np.full([cmip6_tx.lat.size, cmip6_tx.lon.size], np.nan)
 
-            if sacksStart_regrid[xlat, ylon] > sacksEnd_regrid[xlat, ylon]:
+    lat_inds = np.arange(cmip6_tx.lat.size)
+    lon_inds = np.arange(cmip6_tx.lon.size)
 
-                # start loop on 2nd year to allow for growing season that crosses jan 1
-                for y,year in enumerate(np.array(list(yearly_groups.keys()))[1:]):
+    N_gridcell = cmip6_tx.lat.size*cmip6_tx.lon.size
 
-                    cur_evap1 = cmip6_ET_hist[np.array(yearly_groups[year-1])[int(sacksStart_regrid[xlat, ylon]):], xlat, ylon].values
-                    cur_evap2 = cmip6_ET_hist[np.array(yearly_groups[year])[:int(sacksEnd_regrid[xlat, ylon])], xlat, ylon].values
-                    
-                    cur_evap = np.nanmean(np.concatenate([cur_evap1, cur_evap2]))
+    n = 0
 
-                    if not np.isnan(cur_evap):
-                        yearly_grow_evap[y, xlat, ylon] = cur_evap*60*60*24
-                        
-                        
-                    cur_temp1 = cmip6_temp_hist['tasmax'][np.array(yearly_groups[year-1])[int(sacksStart_regrid[xlat, ylon]):], xlat, ylon].values
-                    cur_temp2 = cmip6_temp_hist['tasmax'][np.array(yearly_groups[year])[:int(sacksEnd_regrid[xlat, ylon])], xlat, ylon].values
-                    
-                    cur_temp = np.nanmean(np.concatenate([cur_temp1, cur_temp2]))
+    for xlat in lat_inds:
 
-                    if not np.isnan(cur_temp):
-                        yearly_grow_temp[y, xlat, ylon] = cur_temp
-                        
-                n += 1
+        for ylon in lon_inds:
 
-            else:
+            if n % 10000 == 0:
+                print('%.1f%%'%(n/(cmip6_tx.lat.size*cmip6_tx.lon.size)*100))
 
-                for y,year in enumerate(np.array(list(yearly_groups.keys()))):
+            n += 1
 
-                    cur_evap = np.nanmean(cmip6_ET_hist[np.array(yearly_groups[year])[int(sacksStart_regrid[xlat, ylon]):int(sacksEnd_regrid[xlat, ylon])], xlat, ylon])
-                    
-                    if not np.isnan(cur_evap):
-                        yearly_grow_evap[y, xlat, ylon] = cur_evap*60*60*24
-                        
-                        
-                    cur_temp = np.nanmean(cmip6_temp_hist['tasmax'][np.array(yearly_groups[year])[int(sacksStart_regrid[xlat, ylon]):int(sacksEnd_regrid[xlat, ylon])], xlat, ylon].values)
-                    
-                    if not np.isnan(cur_temp):
-                        yearly_grow_temp[y, xlat, ylon] = cur_temp
-                n += 1
+            if np.isnan(cmip6_tw_cur_year.values[0, xlat, ylon]):
+                continue
 
-# now calc corr
-for xlat in range(cmip6_evapsoi_hist.lat.size):
-    for ylon in range(cmip6_evapsoi_hist.lon.size):
-        e = yearly_grow_evap[:, xlat, ylon]
-        t = yearly_grow_temp[:, xlat, ylon]
-        nn = np.where(~np.isnan(e) & ~np.isnan(t))[0]
-        r_t_et = np.corrcoef(e[nn], t[nn])[0,1]
-        cmip6_r_t_et[xlat, ylon] = r_t_et
+            # get current grid cell cutoffs for tw and tx
+            tw_deciles = cmip6_tw_deciles_values[:, xlat, ylon]
+            tx_deciles = cmip6_tx_deciles_values[:, xlat, ylon]
+
+            # find tw cutoff for current grid cell
+            perc_thresh_ind = np.where(100*percentile_bins == threshold_perc)[0]
+            perc_thresh_tw_value = tw_deciles[perc_thresh_ind]
+            perc_thresh_tx_value = tx_deciles[perc_thresh_ind]
+
+            cur_tx_values = cmip6_tx_cur_year.values[:, xlat, ylon].copy()
+            cur_tw_values = cmip6_tw_cur_year.values[:, xlat, ylon].copy()
+
+            # convert all tx/tw values into percentiles
+            cur_tx_p = np.full([cur_tx_values.size], np.nan)
+            cur_tw_p = np.full([cur_tw_values.size], np.nan)
+
+
+            for d in range(cur_tx_values.size):
+                tx_val = cur_tx_values[d]
+                tw_val = cur_tw_values[d]
+
+                cur_p_ind = abs(tx_deciles-tx_val).argmin()
+                cur_tx_p[d] = percentile_bins[cur_p_ind]
+
+                cur_p_ind = abs(tw_deciles-tw_val).argmin()
+                cur_tw_p[d] = percentile_bins[cur_p_ind]
                 
 
-da_grow_r_t_et = xr.DataArray(data   = cmip6_r_t_et, 
+
+            # find days when tw exceeds
+            tw_exceed_ind = np.where((100*cur_tw_p >= threshold_perc))[0]
+            # mean tx on those days
+            if tw_exceed_ind.size > 0:
+                tx_during_tw[xlat, ylon] = np.nanmean(cur_tx_p[tw_exceed_ind])
+
+
+            # find days when tx exceeds
+            tx_exceed_ind = np.where((100*cur_tx_p >= threshold_perc))[0]
+            if tx_exceed_ind.size > 0:
+                tw_during_tx[xlat, ylon] = np.nanmean(cur_tw_p[tx_exceed_ind])
+
+                
+                
+    dir_path_tx_on_tw = '%s/heat-wave-days/tx-on-tw/cmip6/%s/'%(dirHeatData, model)
+    dir_path_tw_on_tx = '%s/heat-wave-days/tw-on-tx/cmip6/%s/'%(dirHeatData, model)
+    
+    if not os.path.isdir(dir_path_tx_on_tw):
+        os.mkdir(dir_path_tx_on_tw)
+        
+    if not os.path.isdir(dir_path_tw_on_tx):
+        os.mkdir(dir_path_tw_on_tx)
+    
+    print('regriding output')    
+
+    # add cyclic point before regridding
+    lon_data_cyc = cartopy.util.add_cyclic_point(cmip6_tx.lon)
+    tx_during_tw_data_cyc = cartopy.util.add_cyclic_point(tx_during_tw)
+
+    da_tx_during_tw_cyc = xr.DataArray(data   = tx_during_tw_data_cyc, 
                       dims   = ['lat', 'lon'],
-                      coords = {'lat':cmip6_evapsoi_hist.lat, 'lon':cmip6_evapsoi_hist.lon},
-                      attrs  = {'units'     : 'Correlation'
+                      coords = {'lat':cmip6_tx.lat, 'lon':lon_data_cyc},
+                      attrs  = {'units'     : 'Percentile'
                         })
-ds_grow_r_t_et = xr.Dataset()
-ds_grow_r_t_et['r_t_et'] = da_grow_r_t_et
 
-print('saving netcdf...')
-ds_grow_r_t_et.to_netcdf('r_t_et/cmip6_r_t_et_grow_%s_%s_%s_fixed_sh.nc'%(crop, region, model))
+    ds_tx_during_tw_cyc = xr.Dataset()
+    ds_tx_during_tw_cyc['tx_during_tw'] = da_tx_during_tw_cyc
+
+    regridder = xe.Regridder(ds_tx_during_tw_cyc, regridMesh, 'bilinear', reuse_weights=True)
+    regridder.clean_weight_file()
+    ds_tx_during_tw_cyc_regrid = regridder(ds_tx_during_tw_cyc)
     
+    
+    ds_tx_during_tw_cyc_regrid = ds_tx_during_tw_cyc_regrid.assign_coords({'model':model})
+    ds_tx_during_tw_cyc_regrid.to_netcdf('%s/cmip6_tx_on_tw_%d_%s.nc'%(dir_path_tx_on_tw, year, model))
+    
+    
+    
+    # add cyclic point before regridding
+    lon_data_cyc = cartopy.util.add_cyclic_point(cmip6_tx.lon)
+    tw_during_tx_data_cyc = cartopy.util.add_cyclic_point(tw_during_tx)
+
+    da_tw_during_tx_cyc = xr.DataArray(data   = tw_during_tx_data_cyc, 
+                      dims   = ['lat', 'lon'],
+                      coords = {'lat':cmip6_tx.lat, 'lon':lon_data_cyc},
+                      attrs  = {'units'     : 'Percentile'
+                        })
+
+    ds_tw_during_tx_cyc = xr.Dataset()
+    ds_tw_during_tx_cyc['tw_during_tx'] = da_tw_during_tx_cyc
+
+    regridder = xe.Regridder(ds_tw_during_tx_cyc, regridMesh, 'bilinear', reuse_weights=True)
+    regridder.clean_weight_file()
+    ds_tw_during_tx_cyc_regrid = regridder(ds_tw_during_tx_cyc)
+    
+    
+    ds_tw_during_tx_cyc_regrid = ds_tw_during_tx_cyc_regrid.assign_coords({'model':model})
+    ds_tw_during_tx_cyc_regrid.to_netcdf('%s/cmip6_tw_on_tx_%d_%s.nc'%(dir_path_tw_on_tx, year, model))
 
     
     
@@ -198,7 +194,26 @@ ds_grow_r_t_et.to_netcdf('r_t_et/cmip6_r_t_et_grow_%s_%s_%s_fixed_sh.nc'%(crop, 
     
     
     
+#     regridder_tx_on_tw = xe.Regridder(xr.DataArray(data=tx_during_tw, dims=['lat', 'lon'], coords={'lat':cmip6_tx_deciles.lat, 'lon':cmip6_tx_deciles.lon}), regridMesh, 'bilinear', reuse_weights=True)
+#     regridder_tw_on_tx = xe.Regridder(xr.DataArray(data=tw_during_tx, dims=['lat', 'lon'], coords={'lat':cmip6_tw_deciles.lat, 'lon':cmip6_tw_deciles.lon}), regridMesh, 'bilinear', reuse_weights=True)
+
+#     tx_during_tw_regrid = regridder_tx_on_tw(tx_during_tw)
+#     tw_during_tx_regrid = regridder_tw_on_tx(tw_during_tx)
     
+#     print('writing files...')
     
+#     dir_path_tx_on_tw = '%s/heat-wave-days/tx-on-tw/cmip6/%s/'%(dirHeatData, model)
+#     dir_path_tw_on_tx = '%s/heat-wave-days/tw-on-tx/cmip6/%s/'%(dirHeatData, model)
     
+#     if not os.path.isdir(dir_path_tx_on_tw):
+#         os.mkdir(dir_path_tx_on_tw)
+        
+#     if not os.path.isdir(dir_path_tw_on_tx):
+#         os.mkdir(dir_path_tw_on_tx)
     
+#     with open('%s/cmip6_tx_on_tw_%d_%s.dat'%(dir_path_tx_on_tw, year, model), 'wb') as f:
+#         pickle.dump(tx_during_tw_regrid, f)
+#     with open('%s/cmip6_tw_on_tx_%d_%s.dat'%(dir_path_tw_on_tx, year, model), 'wb') as f:
+#         pickle.dump(tw_during_tx_regrid, f)
+
+
