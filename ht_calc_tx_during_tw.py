@@ -53,8 +53,13 @@ year = int(sys.argv[1])
 # find tx when tw > 95p
 threshold_perc = 95
 
+tw_during_tw = np.full([lat.size, lon.size], np.nan)
 tx_during_tw = np.full([lat.size, lon.size], np.nan)
+tx_diff_from_tw_during_tw = np.full([lat.size, lon.size], np.nan)
+
+tx_during_tx = np.full([lat.size, lon.size], np.nan)
 tw_during_tx = np.full([lat.size, lon.size], np.nan)
+tw_diff_from_tx_during_tx = np.full([lat.size, lon.size], np.nan)
 
 print(year)
 
@@ -139,12 +144,16 @@ for xlat in lat_inds:
         # find days when tw exceeds
         tw_exceed_ind = np.where((100*cur_tw_p >= threshold_perc))[0]
         # mean tx on those days
+        tw_during_tw[xlat, ylon] = np.nanmean(cur_tw_p[tw_exceed_ind])
         tx_during_tw[xlat, ylon] = np.nanmean(cur_tx_p[tw_exceed_ind])
+        tx_diff_from_tw_during_tw[xlat, ylon] = np.nanmean(cur_tx_p[tw_exceed_ind]) - np.nanmean(cur_tw_p[tw_exceed_ind])
         
         
         # find days when tx exceeds
         tx_exceed_ind = np.where((100*cur_tx_p >= threshold_perc))[0]
+        tx_during_tx[xlat, ylon] = np.nanmean(cur_tx_p[tx_exceed_ind])
         tw_during_tx[xlat, ylon] = np.nanmean(cur_tw_p[tx_exceed_ind])
+        tw_diff_from_tx_during_tx[xlat, ylon] = np.nanmean(cur_tw_p[tx_exceed_ind]) - np.nanmean(cur_tx_p[tx_exceed_ind])
         
         
 print('writing files...')
@@ -152,6 +161,16 @@ with open('%s/heat-wave-days/tx-on-tw/era5_tx_on_tw_%d.dat'%(dirHeatData, year),
     pickle.dump(tx_during_tw, f)
 with open('%s/heat-wave-days/tw-on-tx/era5_tw_on_tx_%d.dat'%(dirHeatData, year), 'wb') as f:
     pickle.dump(tw_during_tx, f)
+    
+with open('%s/heat-wave-days/tx-on-tw/era5_tx_on_tx_%d.dat'%(dirHeatData, year), 'wb') as f:
+    pickle.dump(tx_during_tx, f)
+with open('%s/heat-wave-days/tw-on-tx/era5_tw_on_tw_%d.dat'%(dirHeatData, year), 'wb') as f:
+    pickle.dump(tw_during_tw, f)
+    
+with open('%s/heat-wave-days/tx-on-tw/era5_tx_diff_from_tw_on_tw_%d.dat'%(dirHeatData, year), 'wb') as f:
+    pickle.dump(tx_diff_from_tw_during_tw, f)
+with open('%s/heat-wave-days/tw-on-tx/era5_tw_diff_from_tx_on_tx_%d.dat'%(dirHeatData, year), 'wb') as f:
+    pickle.dump(tw_diff_from_tx_during_tx, f)
     
 
 

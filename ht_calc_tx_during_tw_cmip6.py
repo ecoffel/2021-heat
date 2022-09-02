@@ -22,7 +22,8 @@ cmip6_models = ['bcc-csm2-mr', 'bcc-esm1', 'canesm5', \
 
 model = sys.argv[1]
 
-yearRange = np.arange(1981, 2014+1)
+yearRange = np.arange(2014, 2014+1)
+
 threshold_perc = 95
 
 def in_time_range(y, year_target):
@@ -66,6 +67,8 @@ for year in yearRange:
 
     tx_during_tw = np.full([cmip6_tx.lat.size, cmip6_tx.lon.size], np.nan)
     tw_during_tx = np.full([cmip6_tx.lat.size, cmip6_tx.lon.size], np.nan)
+    
+    tw_during_tx_exceed = np.full([cmip6_tx.lat.size, cmip6_tx.lon.size], np.nan)
 
     lat_inds = np.arange(cmip6_tx.lat.size)
     lon_inds = np.arange(cmip6_tx.lon.size)
@@ -83,7 +86,7 @@ for year in yearRange:
 
             n += 1
 
-            if np.isnan(cmip6_tw_cur_year.values[0, xlat, ylon]):
+            if np.isnan(np.nanmean(cmip6_tw_cur_year.values[:, xlat, ylon])):
                 continue
 
             # get current grid cell cutoffs for tw and tx
@@ -117,6 +120,7 @@ for year in yearRange:
 
             # find days when tw exceeds
             tw_exceed_ind = np.where((100*cur_tw_p >= threshold_perc))[0]
+            tw_during_tx_exceed[xlat, ylon] = tw_exceed_ind.size
             # mean tx on those days
             if tw_exceed_ind.size > 0:
                 tx_during_tw[xlat, ylon] = np.nanmean(cur_tx_p[tw_exceed_ind])
@@ -183,7 +187,6 @@ for year in yearRange:
     
     ds_tw_during_tx_cyc_regrid = ds_tw_during_tx_cyc_regrid.assign_coords({'model':model})
     ds_tw_during_tx_cyc_regrid.to_netcdf('%s/cmip6_tw_on_tx_%d_%s.nc'%(dir_path_tw_on_tx, year, model))
-
     
     
     
