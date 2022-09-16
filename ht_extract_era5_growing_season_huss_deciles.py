@@ -7,7 +7,7 @@ import statsmodels.api as sm
 import cartopy
 import cartopy.crs as ccrs
 import glob
-import sys
+import sys, pickle
 import datetime
 
 dirERA5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F20/ERA5'
@@ -39,64 +39,57 @@ bins = np.arange(0, 101, 1)
 
 n = 0
 
-num_chunks = 32
-n_chunk = int(sys.argv[1])
+xlat = int(sys.argv[1])
 
-lat_chunk = round(lat.size/num_chunks)
-lon_chunk = round(lon.size/num_chunks)
+# lat_chunk = 30
+# chunks = np.arange(0, 721, lat_chunk)
 
-# loop over all latitudes
-for xlat_ind, xlat in enumerate(range(n_chunk*lat_chunk, (n_chunk+1)*lat_chunk, 1)):
+# num_chunks = chunks.size
+# lon_chunk = round(lon.size/num_chunks)
 
-    cur_lat_1 = lat[xlat]
+cur_huss_deciles = np.full([lon.size, bins.size], np.nan)
+
+# this is run for EACH latitude band
+
+cur_lat_1 = lat[xlat]
+
+
+print('opening era5 full time series for lat = (%.2f)...'%(cur_lat_1))
+
+# leave in K
+dp_era5 = xr.open_mfdataset('%s/daily/%s*.nc'%(dirERA5, file_var))
+print('selecting dp...')
+dp_era5 = dp_era5.sel(latitude=cur_lat_1)
+print('loading dp...')
+dp_era5.load()
+
+# in hpa
+sp_era5 = xr.open_mfdataset('%s/daily/%s*.nc'%(dirERA5, 'sp'))
+print('selecting sp...')
+sp_era5 = sp_era5.sel(latitude=cur_lat_1)
+print('loading sp...')
+sp_era5.load()
+sp_era5['sp'] /= 100
+
+print('processing huss deciles lat = %.2f...'%cur_lat_1)
+
+# loop over all longitudes
+for ylon in range(0, lon.size):
+
+    cur_dp = dp_era5.d2m[:, ylon]
+    cur_sp = sp_era5.sp[:, ylon]
     
-    if xlat+lat_chunk < lat.size:
-        cur_lat_2 = lat[xlat+lat_chunk]
-    else:
-        cur_lat_2 = lat[-1]
-    
-    cur_huss_deciles = np.full([lat_chunk, lon.size, bins.size], np.nan)
-    
-    print('opening era5 full time series for lat = (%.2f, %.2f)...'%(cur_lat_1, cur_lat_2))
 
-    # leave in K
-    dp_era5 = xr.open_mfdataset('%s/daily/%s*.nc'%(dirERA5, file_var))
-    print('selecting dp...')
-    dp_era5 = dp_era5.sel(latitude=slice(cur_lat_1, cur_lat_2))
-    print('loading dp...')
-    dp_era5.load()
+    e0 = 6.113
+    c_water = 5423
 
-    # in hpa
-    sp_era5 = xr.open_mfdataset('%s/daily/%s*.nc'%(dirERA5, 'sp'))
-    print('selecting sp...')
-    sp_era5 = sp_era5.sel(latitude=slice(cur_lat_1, cur_lat_2))
-    print('loading sp...')
-    sp_era5.load()
-    sp_era5['sp'] /= 100
-    
-    print('processing huss deciles lat = %.2f...'%cur_lat_1)
-    
-    # loop over all longitudes
-    for ylon in range(0, lon.size):
-        
-        
-        
-        cur_dp = dp_era5.d2m[:, xlat_ind, ylon]
-        cur_sp = sp_era5.sp[:, xlat_ind, ylon]
+    cur_q = (622 * e0 * np.exp(c_water * (cur_dp - 273.15)/(cur_dp * 273.15)))/cur_sp # g/kg 
 
-        e0 = 6.113
-        c_water = 5423
-
-        cur_q = (622 * e0 * np.exp(c_water * (cur_dp - 273.15)/(cur_dp * 273.15)))/cur_sp # g/kg 
-
-        cur_huss_deciles[xlat_ind, ylon, :] = np.nanpercentile(cur_q, bins)
-        
-
+    cur_huss_deciles[ylon, :] = np.nanpercentile(cur_q, bins)
         
 print('writing files...')
-with open('huss_percentiles_%d.dat'%(n_chunk), 'wb') as f:
+with open('huss_percentiles_%d.dat'%(xlat), 'wb') as f:
     pickle.dump(cur_huss_deciles, f)
-
 
 
 

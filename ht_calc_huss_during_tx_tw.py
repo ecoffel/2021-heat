@@ -34,7 +34,7 @@ dirEra5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F
 dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 # tx or tw 
-ref_var = 'tx'
+ref_var = 'tw'
 
 year = int(sys.argv[1])
 print(year)
@@ -64,22 +64,37 @@ percentile_bins = era5_hw_deciles['quantile'].values
 lat = era5_hw_deciles.latitude.values
 lon = era5_hw_deciles.longitude.values
 
-# load et
-print('loading et')
-era5_et_deciles = xr.open_dataset('%s/era5_evaporation_deciles.nc'%dirHeatData)
-era5_et_deciles.load()
+huss_deciles = np.full([lat.size, lon.size, 101], np.nan)
+
+print('opening sp datasets for %d'%year)
+sp = xr.open_dataset('%s/daily/sp_%d.nc'%(dirEra5, year))
+sp.load()
+sp['sp'] /= 100
+
+print('opening dp2t datasets for %d'%year)
+dp2t = xr.open_dataset('%s/daily/dp_mean_%d.nc'%(dirEra5, year)) 
+dp2t.load()
+
+e0 = 6.113
+c_water = 5423
+
+huss = np.full([sp.time.size, lat.size, lon.size], np.nan)
+huss = (622 * e0 * np.exp(c_water * (dp2t.d2m.values - 273.15)/(dp2t.d2m.values * 273.15)))/sp.sp.values # g/kg 
 
 
-era5_et = xr.open_dataset('%s/daily/evaporation_%d.nc'%(dirEra5, year))
-era5_et.load()
+# load huss deciles
+huss_deciles = np.full([lat.size, lon.size, 101], np.nan)
 
+for xlat in range(0, lat.size):
+    with open('decile_bins/era5-huss/huss_percentiles_%d.dat'%(xlat), 'rb') as f:
+        tmp = pickle.load(f)
+        huss_deciles[xlat, :, :] = tmp
 
-era5_et_deciles_values = era5_et_deciles.e.values.copy()
 
 # find tx when tw > 95p
 threshold_perc = 95
 
-et_during_hw = np.full([lat.size, lon.size], np.nan)
+huss_during_hw = np.full([lat.size, lon.size], np.nan)
 
 lat_inds = np.arange(lat.size)
 lon_inds = np.arange(lon.size)
@@ -123,45 +138,44 @@ for xlat in lat_inds:
             continue
         
         # get current grid cell cutoffs for tw and tx
-        hw_deciles = era5_hw_deciles_values[:, xlat, ylon]
-        et_deciles = era5_et_deciles_values[:, xlat, ylon]
+        cur_hw_deciles = era5_hw_deciles_values[:, xlat, ylon]
+        cur_huss_deciles = huss_deciles[xlat, ylon, :]
 
         # find tw cutoff for current grid cell
         perc_thresh_ind = np.where(100*percentile_bins == threshold_perc)[0]
-        perc_thresh_hw_value = hw_deciles[perc_thresh_ind]
+        perc_thresh_hw_value = cur_hw_deciles[perc_thresh_ind]
 
         if ref_var == 'tx':
             cur_hw_values = era5_hw.mx2t.values[:, xlat, ylon].copy()
         elif ref_var == 'tw':
             cur_hw_values = era5_hw.tw.values[:, xlat, ylon].copy()
         
-        cur_et_values = era5_et.e.values[:, xlat, ylon].copy()
+        cur_huss_values = huss[:, xlat, ylon].copy()
         
         # convert all tx/tw values into percentiles
         cur_hw_p = np.full([cur_hw_values.size], np.nan)
-        cur_et_p = np.full([cur_et_values.size], np.nan)
+        cur_huss_p = np.full([cur_huss_values.size], np.nan)
         
         for d in range(cur_hw_values.size):
             hw_val = cur_hw_values[d]
-            et_val = cur_et_values[d]
+            huss_val = cur_huss_values[d]
             
-            cur_p_ind = abs(hw_deciles-hw_val).argmin()
+            cur_p_ind = abs(cur_hw_deciles-hw_val).argmin()
             cur_hw_p[d] = percentile_bins[cur_p_ind]
             
-            cur_p_ind = abs(et_deciles-et_val).argmin()
-            cur_et_p[d] = 1-percentile_bins[cur_p_ind]
+            cur_p_ind = abs(cur_huss_deciles-huss_val).argmin()
+            cur_huss_p[d] = 1-percentile_bins[cur_p_ind]
             
             
-        
         # find days when tw exceeds
         hw_exceed_ind = np.where((100*cur_hw_p >= threshold_perc))[0]
         # mean tx on those days
-        et_during_hw[xlat, ylon] = np.nanmean(cur_et_p[hw_exceed_ind])
+        huss_during_hw[xlat, ylon] = np.nanmean(cur_huss_p[hw_exceed_ind])
         
                 
 print('writing files...')
-with open('%s/heat-wave-days/et-on-%s/era5_et_on_%s_%d.dat'%(dirHeatData, ref_var, ref_var, year), 'wb') as f:
-    pickle.dump(et_during_hw, f)
+with open('%s/heat-wave-days/huss-on-%s/era5_huss_on_%s_%d.dat'%(dirHeatData, ref_var, ref_var, year), 'wb') as f:
+    pickle.dump(huss_during_hw, f)
     
 
 

@@ -54,6 +54,9 @@ tw_diff_from_tx_during_tx = np.full([len(yearRange), lat.size, lon.size], np.nan
 et_during_tw = np.full([len(yearRange), lat.size, lon.size], np.nan)
 et_during_tx = np.full([len(yearRange), lat.size, lon.size], np.nan)
 
+huss_during_tw = np.full([len(yearRange), lat.size, lon.size], np.nan)
+huss_during_tx = np.full([len(yearRange), lat.size, lon.size], np.nan)
+
 tx_during_tw_trend = np.full([lat.size, lon.size], np.nan)
 tx_during_tw_pval = np.full([lat.size, lon.size], np.nan)
 
@@ -78,6 +81,12 @@ et_during_tw_pval = np.full([lat.size, lon.size], np.nan)
 et_during_tx_trend = np.full([lat.size, lon.size], np.nan)
 et_during_tx_pval = np.full([lat.size, lon.size], np.nan)
 
+huss_during_tw_trend = np.full([lat.size, lon.size], np.nan)
+huss_during_tw_pval = np.full([lat.size, lon.size], np.nan)
+
+huss_during_tx_trend = np.full([lat.size, lon.size], np.nan)
+huss_during_tx_pval = np.full([lat.size, lon.size], np.nan)
+
 # tx_during_tw_cmip6 = xr.Dataset()
 # tw_during_tx_cmip6 = xr.Dataset()
 
@@ -101,6 +110,11 @@ for y_ind, y in enumerate(yearRange):
         et_during_tx[y_ind, :, :] = pickle.load(f)
     with open('%s/heat-wave-days/et-on-tw/era5_et_on_tw_%d.dat'%(dirHeatData, y), 'rb') as f:
         et_during_tw[y_ind, :, :] = pickle.load(f)
+        
+    with open('%s/heat-wave-days/huss-on-tx/era5_huss_on_tx_%d.dat'%(dirHeatData, y), 'rb') as f:
+        huss_during_tx[y_ind, :, :] = pickle.load(f)
+    with open('%s/heat-wave-days/huss-on-tw/era5_huss_on_tw_%d.dat'%(dirHeatData, y), 'rb') as f:
+        huss_during_tw[y_ind, :, :] = pickle.load(f)
         
 for xlat in np.arange(0, lat.size):
     print(xlat)
@@ -129,6 +143,12 @@ for xlat in np.arange(0, lat.size):
         
         et_during_tx_cur = et_during_tx[:, xlat, ylon]
         et_during_tx_cur_1d = et_during_tx_cur.reshape([et_during_tx_cur.size, 1])
+        
+        huss_during_tw_cur = huss_during_tw[:, xlat, ylon]
+        huss_during_tw_cur_1d = huss_during_tw_cur.reshape([huss_during_tw_cur.size, 1])
+        
+        huss_during_tx_cur = huss_during_tx[:, xlat, ylon]
+        huss_during_tx_cur_1d = huss_during_tx_cur.reshape([huss_during_tx_cur.size, 1])
 
 
         nn = np.where((~np.isnan(tx_during_tw_cur_1d)))[0]
@@ -221,6 +241,29 @@ for xlat in np.arange(0, lat.size):
         else:
             et_during_tw_trend[xlat, ylon] = np.nan
             et_during_tw_pval[xlat, ylon] = np.nan
+            
+            
+            
+        nn = np.where((~np.isnan(huss_during_tx_cur_1d)))[0]
+        if nn.size > 10:
+            X = sm.add_constant(np.arange(huss_during_tx_cur_1d[nn].size))
+            mdl = sm.OLS(huss_during_tx_cur_1d[nn], X).fit()
+            huss_during_tx_trend[xlat, ylon] = mdl.params[1]
+            huss_during_tx_pval[xlat, ylon] = mdl.pvalues[1]
+        else:
+            huss_during_tx_trend[xlat, ylon] = np.nan
+            huss_during_tx_pval[xlat, ylon] = np.nan
+
+
+        nn = np.where((~np.isnan(huss_during_tw_cur_1d)))[0]
+        if nn.size > 10:
+            X = sm.add_constant(np.arange(huss_during_tw_cur_1d[nn].size))
+            mdl = sm.OLS(huss_during_tw_cur_1d[nn], X).fit()
+            huss_during_tw_trend[xlat, ylon] = mdl.params[1]
+            huss_during_tw_pval[xlat, ylon] = mdl.pvalues[1]
+        else:
+            huss_during_tw_trend[xlat, ylon] = np.nan
+            huss_during_tw_pval[xlat, ylon] = np.nan
         
 
 print('writing files...')
@@ -267,6 +310,17 @@ with open('%s/heat-wave-days/et-on-tx/era5_et_on_tx_trend.dat'%(dirHeatData), 'w
     pickle.dump(et_during_tx_trend, f)
 with open('%s/heat-wave-days/et-on-tx/era5_et_on_tx_trend_pval.dat'%(dirHeatData), 'wb') as f:
     pickle.dump(et_during_tx_pval, f)
+    
+    
+with open('%s/heat-wave-days/huss-on-tw/era5_huss_on_tw_trend.dat'%(dirHeatData), 'wb') as f:
+    pickle.dump(huss_during_tw_trend, f)
+with open('%s/heat-wave-days/huss-on-tw/era5_huss_on_tw_trend_pval.dat'%(dirHeatData), 'wb') as f:
+    pickle.dump(huss_during_tw_pval, f)
+    
+with open('%s/heat-wave-days/huss-on-tx/era5_huss_on_tx_trend.dat'%(dirHeatData), 'wb') as f:
+    pickle.dump(huss_during_tx_trend, f)
+with open('%s/heat-wave-days/huss-on-tx/era5_huss_on_tx_trend_pval.dat'%(dirHeatData), 'wb') as f:
+    pickle.dump(huss_during_tx_pval, f)
     
 
 
