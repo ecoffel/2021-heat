@@ -34,7 +34,7 @@ dirEra5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F
 dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 # tx or tw 
-ref_var = 'tw'
+ref_var = 'tx'
 
 year = int(sys.argv[1])
 print(year)
@@ -164,7 +164,7 @@ for xlat in lat_inds:
             cur_hw_p[d] = percentile_bins[cur_p_ind]
             
             cur_p_ind = abs(cur_huss_deciles-huss_val).argmin()
-            cur_huss_p[d] = 1-percentile_bins[cur_p_ind]
+            cur_huss_p[d] = percentile_bins[cur_p_ind]
             
             
         # find days when tw exceeds
