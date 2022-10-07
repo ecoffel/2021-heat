@@ -26,9 +26,6 @@ n = 0
 xlat = int(sys.argv[1])
 
 
-
-
-
 print('opening era5 full time series')
 
 # leave in K

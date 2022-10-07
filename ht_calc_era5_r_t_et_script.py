@@ -42,7 +42,9 @@ dirAg6 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoff
 #1990-2000
 #2000-2010
 #2010-2018
-years = [1981, 2018]
+# years = [1961, 1981]
+# years = [1981, 2001]
+years = [2001, 2021]
 
 sacksMaizeNc = xr.open_dataset('%s/sacks/Maize.crop.calendar.fill.nc'%dirAgData)
 sacksStart = sacksMaizeNc['plant'].values
@@ -60,8 +62,12 @@ sacksLon = np.linspace(0, 360, 720)
 ds_tasmax = xr.open_mfdataset('%s/monthly/tasmax_*.nc'%(dirEra5))
 ds_tasmax['mx2t'] -= 273.15
 
-ds_evap = xr.open_mfdataset('%s/monthly/evapotranspiration_monthly_*.nc'%(dirEra5Land))
+# ds_evap = xr.open_mfdataset('%s/monthly/evapotranspiration_monthly_*.nc'%(dirEra5Land))
+# ds_evap['e'] *= -1
+
+ds_evap = xr.open_mfdataset('%s/monthly/total_evaporation_monthly_*.nc'%(dirEra5Land))
 ds_evap['e'] *= -1
+# sys.exit()
 
 ds_tasmax = ds_tasmax.sel(time=slice('%d'%years[0],'%d'%years[1]))
 ds_evap = ds_evap.sel(time=slice('%d'%years[0],'%d'%years[1]))
@@ -114,7 +120,7 @@ for xlat in range(len(lat)):
         if n % 50000 == 0:
                 print('%.1f %% complete'%(n/(nnLen)*100))
                 
-        if ~np.isnan(sacksStart_regrid[xlat, ylon]) and ~np.isnan(sacksEnd_regrid[xlat, ylon]) and crop_ha_regrid[xlat, ylon] > 0:
+        if ~np.isnan(sacksStart_regrid[xlat, ylon]) and ~np.isnan(sacksEnd_regrid[xlat, ylon]):# and crop_ha_regrid[xlat, ylon] > 0:
 
             
             
@@ -144,4 +150,5 @@ ds_grow_r_t_et['r_t_et'] = da_grow_r_t_et
 
 
 print('saving netcdf...')
-ds_grow_r_t_et.to_netcdf('r_t_et_era5_crop_restricted_%d_%d.nc'%(years[0], years[1]))
+# ds_grow_r_t_et.to_netcdf('r_t_et_era5_crop_restricted_%d_%d.nc'%(years[0], years[1]))
+ds_grow_r_t_et.to_netcdf('r_t_et_era5_total_evaporation_%d_%d.nc'%(years[0], years[1]))
