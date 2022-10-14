@@ -44,7 +44,7 @@ dirAg6 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoff
 #2010-2018
 # years = [1961, 1981]
 # years = [1981, 2001]
-years = [2001, 2021]
+years = [1961, 2021]
 
 sacksMaizeNc = xr.open_dataset('%s/sacks/Maize.crop.calendar.fill.nc'%dirAgData)
 sacksStart = sacksMaizeNc['plant'].values
