@@ -173,8 +173,8 @@ for xlat in lat_inds:
         
                 
 print('writing files...')
-with open('%s/heat-wave-days/huss-on-%s/era5_huss_on_%s_%d.dat'%(dirHeatData, ref_var, ref_var, year), 'wb') as f:
-    pickle.dump(huss_during_hw, f)
+with open('%s/heat-wave-days/sm-on-%s/era5_sm_on_%s_%d.dat'%(dirHeatData, ref_var, ref_var, year), 'wb') as f:
+    pickle.dump(sm_during_hw, f)
     
 
 

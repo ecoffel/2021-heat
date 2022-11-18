@@ -51,7 +51,7 @@ lon = era5_tw_deciles.longitude.values
 year = int(sys.argv[1])
 
 # find tx when tw > 95p
-threshold_perc = 95
+threshold_perc = 99
 
 tw_during_tw = np.full([lat.size, lon.size], np.nan)
 tx_during_tw = np.full([lat.size, lon.size], np.nan)
@@ -157,20 +157,20 @@ for xlat in lat_inds:
         
         
 print('writing files...')
-with open('%s/heat-wave-days/tx-on-tw/era5_tx_on_tw_%d.dat'%(dirHeatData, year), 'wb') as f:
+with open('%s/heat-wave-days/tx-on-tw/era5_tx_on_tw_%d_%d.dat'%(dirHeatData, threshold_perc, year), 'wb') as f:
     pickle.dump(tx_during_tw, f)
-with open('%s/heat-wave-days/tw-on-tx/era5_tw_on_tx_%d.dat'%(dirHeatData, year), 'wb') as f:
+with open('%s/heat-wave-days/tw-on-tx/era5_tw_on_tx_%d_%d.dat'%(dirHeatData, threshold_perc, year), 'wb') as f:
     pickle.dump(tw_during_tx, f)
     
-with open('%s/heat-wave-days/tx-on-tw/era5_tx_on_tx_%d.dat'%(dirHeatData, year), 'wb') as f:
+with open('%s/heat-wave-days/tx-on-tw/era5_tx_on_tx_%d_%d.dat'%(dirHeatData, threshold_perc, year), 'wb') as f:
     pickle.dump(tx_during_tx, f)
-with open('%s/heat-wave-days/tw-on-tx/era5_tw_on_tw_%d.dat'%(dirHeatData, year), 'wb') as f:
+with open('%s/heat-wave-days/tw-on-tx/era5_tw_on_tw_%d_%d.dat'%(dirHeatData, threshold_perc, year), 'wb') as f:
     pickle.dump(tw_during_tw, f)
     
-with open('%s/heat-wave-days/tx-on-tw/era5_tx_diff_from_tw_on_tw_%d.dat'%(dirHeatData, year), 'wb') as f:
-    pickle.dump(tx_diff_from_tw_during_tw, f)
-with open('%s/heat-wave-days/tw-on-tx/era5_tw_diff_from_tx_on_tx_%d.dat'%(dirHeatData, year), 'wb') as f:
-    pickle.dump(tw_diff_from_tx_during_tx, f)
+# with open('%s/heat-wave-days/tx-on-tw/era5_tx_diff_from_tw_on_tw_%d.dat'%(dirHeatData, year), 'wb') as f:
+#     pickle.dump(tx_diff_from_tw_during_tw, f)
+# with open('%s/heat-wave-days/tw-on-tx/era5_tw_diff_from_tx_on_tx_%d.dat'%(dirHeatData, year), 'wb') as f:
+#     pickle.dump(tw_diff_from_tx_during_tx, f)
     
 
 
