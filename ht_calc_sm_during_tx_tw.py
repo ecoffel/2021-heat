@@ -68,7 +68,7 @@ lon = era5_hw_deciles.longitude.values
 sm_deciles = np.full([lat.size, lon.size, 101], np.nan)
 
 print('opening sm datasets for %d'%year)
-sm = xr.open_dataset('%s/monthly/volumetric_soil_water_layer_1_monthly_%d.nc'%(dirEra5Land, year))
+sm = xr.open_dataset('%s/daily/sm_%d.nc'%(dirEra5Land, year))
 sm.load()
 
 sm = sm.rename_dims({'latitude':'lat', 'longitude':'lon'})
@@ -76,15 +76,16 @@ sm = sm.rename_dims({'latitude':'lat', 'longitude':'lon'})
 # load huss deciles
 sm_deciles = np.full([101, 1801, 3600], np.nan)
 
-for xlat in range(0, sm_deciles.shape[0]):
-    with open('decile_bins/era5-land-sm/sm_percentiles_%d.dat'%(xlat), 'rb') as f:
+for xlat in range(0, sm_deciles.shape[1]):
+    with open('decile_bins/era5-land-sm-daily/sm_percentiles_%d.dat'%(xlat), 'rb') as f:
         tmp = pickle.load(f)
         sm_deciles[:, xlat, :] = tmp.T
 
 da_sm_deciles = xr.DataArray(data   = sm_deciles, 
                           dims   = ['percentile', 'lat', 'lon'],
                           coords = {'percentile':np.arange(0, 101, 1), 'lat':sm.lat, 'lon':sm.lon})
-        
+
+
 # find tx when tw > 95p
 threshold_perc = 95
 
@@ -170,6 +171,7 @@ for xlat in lat_inds:
         hw_exceed_ind = np.where((100*cur_hw_p >= threshold_perc))[0]
         # mean tx on those days
         sm_during_hw[xlat, ylon] = np.nanmean(cur_sm_p[hw_exceed_ind])
+        
         
                 
 print('writing files...')

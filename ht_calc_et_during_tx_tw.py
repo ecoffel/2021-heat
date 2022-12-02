@@ -34,7 +34,7 @@ dirEra5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F
 dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 # tx or tw 
-ref_var = 'tx'
+ref_var = 'tw'
 
 year = int(sys.argv[1])
 print(year)
