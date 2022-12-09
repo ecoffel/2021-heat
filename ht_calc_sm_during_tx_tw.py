@@ -87,7 +87,7 @@ da_sm_deciles = xr.DataArray(data   = sm_deciles,
 
 
 # find tx when tw > 95p
-threshold_perc = 95
+threshold_perc = 97
 
 sm_during_hw = np.full([lat.size, lon.size], np.nan)
 
@@ -175,7 +175,7 @@ for xlat in lat_inds:
         
                 
 print('writing files...')
-with open('%s/heat-wave-days/sm-on-%s/era5_sm_on_%s_%d.dat'%(dirHeatData, ref_var, ref_var, year), 'wb') as f:
+with open('%s/heat-wave-days/sm-on-%s/era5_sm_on_%s_%d_%d.dat'%(dirHeatData, ref_var, ref_var, threshold_perc, year), 'wb') as f:
     pickle.dump(sm_during_hw, f)
     
 

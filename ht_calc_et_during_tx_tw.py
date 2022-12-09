@@ -77,7 +77,7 @@ era5_et.load()
 era5_et_deciles_values = era5_et_deciles.e.values.copy()
 
 # find tx when tw > 95p
-threshold_perc = 95
+threshold_perc = 96
 
 et_during_hw = np.full([lat.size, lon.size], np.nan)
 
@@ -160,7 +160,7 @@ for xlat in lat_inds:
         
                 
 print('writing files...')
-with open('%s/heat-wave-days/et-on-%s/era5_et_on_%s_%d.dat'%(dirHeatData, ref_var, ref_var, year), 'wb') as f:
+with open('%s/heat-wave-days/et-on-%s/era5_et_on_%s_%d_%d.dat'%(dirHeatData, ref_var, ref_var, threshold_perc, year), 'wb') as f:
     pickle.dump(et_during_hw, f)
     
 
