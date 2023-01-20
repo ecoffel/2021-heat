@@ -4,8 +4,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 import statsmodels.api as sm
+import xesmf as xe
 import cartopy
 import cartopy.crs as ccrs
+import cartopy.util
+from cartopy.io.shapereader import Reader
+from cartopy.feature import ShapelyFeature
 import glob
 import sys, os
 import datetime
@@ -43,9 +47,19 @@ sacksEnd[sacksEnd < 0] = np.nan
 
 sacksLat = np.linspace(90, -90, 360)
 sacksLon = np.linspace(0, 360, 720)
+
+newLat = np.arange(-90, 90, 1.5)
+newLon = np.arange(0, 360, 1.5)
+
+# regrid sacks data
+regridMesh = xr.Dataset({'lat': (['lat'], newLat),
+                         'lon': (['lon'], newLon),})
+
+    
+year_range = [1981,2000]
     
 def in_time_range(y):
-    return (y >= 1981) & (y <= 2014)
+    return (y >= year_range[0]) & (y <= year_range[1])
 
 
 print('opening %s...'%model)
@@ -55,6 +69,7 @@ cmip6_tran_hist = xr.open_mfdataset('%s/%s/r1i1p1f1/historical/%s/%s_Lmon_*.nc'%
 
 print('opening temp')
 cmip6_temp_hist = xr.open_mfdataset('%s/%s/%s/%s/%s/*_day_*.nc'%(dirCmip6, model, 'r1i1p1f1', 'historical', 'tasmax'), concat_dim='time')
+
 
 
 print('selecting data for %s...'%model)
@@ -176,16 +191,29 @@ for xlat in range(cmip6_evapsoi_hist.lat.size):
         cmip6_r_t_et[xlat, ylon] = r_t_et
                 
 
-da_grow_r_t_et = xr.DataArray(data   = cmip6_r_t_et, 
+# add cyclic point before regridding
+lon_data_cyc = cartopy.util.add_cyclic_point(cmip6_evapsoi_hist.lon)
+cmip6_r_t_et_data_cyc = cartopy.util.add_cyclic_point(cmip6_r_t_et)
+            
+da_grow_r_t_et = xr.DataArray(data   = cmip6_r_t_et_data_cyc, 
                       dims   = ['lat', 'lon'],
-                      coords = {'lat':cmip6_evapsoi_hist.lat, 'lon':cmip6_evapsoi_hist.lon},
+                      coords = {'lat':cmip6_evapsoi_hist.lat, 'lon':lon_data_cyc},
                       attrs  = {'units'     : 'Correlation'
                         })
 ds_grow_r_t_et = xr.Dataset()
 ds_grow_r_t_et['r_t_et'] = da_grow_r_t_et
 
+
+regridder = xe.Regridder(ds_grow_r_t_et, regridMesh, 'bilinear', reuse_weights=True)
+regridder.clean_weight_file()
+ds_grow_r_t_et_regrid = regridder(ds_grow_r_t_et)
+    
+    
+ds_grow_r_t_et_regrid = ds_grow_r_t_et_regrid.assign_coords({'model':model})
+
+
 print('saving netcdf...')
-ds_grow_r_t_et.to_netcdf('r_t_et/cmip6_r_t_et_grow_%s_%s_%s_fixed_sh.nc'%(crop, region, model))
+ds_grow_r_t_et_regrid.to_netcdf('r_t_et/cmip6_r_t_et_grow_%s_%s_%s_%d_%d_fixed_sh.nc'%(crop, region, model, year_range[0], year_range[1]))
     
 
     

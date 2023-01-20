@@ -51,7 +51,7 @@ lon = era5_tw_deciles.longitude.values
 year = int(sys.argv[1])
 
 # find tx when tw > 95p
-threshold_perc = 96
+threshold_perc = 50
 
 tw_during_tw = np.full([lat.size, lon.size], np.nan)
 tx_during_tw = np.full([lat.size, lon.size], np.nan)

@@ -34,7 +34,7 @@ dirEra5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F
 dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 # tx or tw 
-ref_var = 'tw'
+ref_var = 'tx'
 
 year = int(sys.argv[1])
 print(year)
@@ -77,7 +77,7 @@ era5_et.load()
 era5_et_deciles_values = era5_et_deciles.e.values.copy()
 
 # find tx when tw > 95p
-threshold_perc = 96
+threshold_perc = 50
 
 et_during_hw = np.full([lat.size, lon.size], np.nan)
 

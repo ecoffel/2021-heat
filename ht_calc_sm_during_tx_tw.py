@@ -35,7 +35,7 @@ dirEra5Land = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoff
 dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 # tx or tw 
-ref_var = 'tx'
+ref_var = 'tw'
 
 year = int(sys.argv[1])
 print(year)
@@ -87,7 +87,7 @@ da_sm_deciles = xr.DataArray(data   = sm_deciles,
 
 
 # find tx when tw > 95p
-threshold_perc = 97
+threshold_perc = 90
 
 sm_during_hw = np.full([lat.size, lon.size], np.nan)
 
