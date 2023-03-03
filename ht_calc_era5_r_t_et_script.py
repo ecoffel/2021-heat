@@ -8,6 +8,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import scipy.stats as st
 import scipy
+from scipy import signal
 import os, sys, pickle, gzip
 import datetime
 import geopy.distance
@@ -44,7 +45,8 @@ dirAg6 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoff
 #2010-2018
 # years = [1961, 1981]
 # years = [1981, 2001]
-years = [2001, 2015]
+# years = [1961, 1980]
+years = [1981, 2016]
 
 sacksMaizeNc = xr.open_dataset('%s/sacks/Maize.crop.calendar.fill.nc'%dirAgData)
 sacksStart = sacksMaizeNc['plant'].values
@@ -136,7 +138,14 @@ for xlat in range(len(lat)):
             ds_tasmax_growing_1y = ds_tasmax_growing.resample(time='1Y', loffset='%dM'%(sacks_start_month-1)).mean()
             ds_evap_growing_1y = ds_evap_growing.resample(time='1Y', loffset='%dM'%(sacks_start_month-1)).mean()
             
-            r_t_et[xlat, ylon] = np.corrcoef(ds_tasmax_growing_1y.values,ds_evap_growing_1y.values)[0,1]
+            nn = np.where((~np.isnan(ds_tasmax_growing_1y.values)) & (~np.isnan(ds_evap_growing_1y.values)))[0]
+            
+            if nn.size > 10:
+                ds_tasmax_growing_1y_detrend = signal.detrend(ds_tasmax_growing_1y.values[nn])
+                ds_evap_growing_1y_detrend = signal.detrend(ds_evap_growing_1y.values[nn])
+
+    #             r_t_et[xlat, ylon] = np.corrcoef(ds_tasmax_growing_1y.values,ds_evap_growing_1y.values)[0,1]
+                r_t_et[xlat, ylon] = np.corrcoef(ds_tasmax_growing_1y_detrend,ds_evap_growing_1y_detrend)[0,1]
 
         n += 1
                 
@@ -151,4 +160,4 @@ ds_grow_r_t_et['r_t_et'] = da_grow_r_t_et
 
 print('saving netcdf...')
 # ds_grow_r_t_et.to_netcdf('r_t_et_era5_crop_restricted_%d_%d.nc'%(years[0], years[1]))
-ds_grow_r_t_et.to_netcdf('r_t_et_era5_total_evaporation_%d_%d.nc'%(years[0], years[1]))
+ds_grow_r_t_et.to_netcdf('r_t_et_era5_total_evaporation_%d_%d_detrend.nc'%(years[0], years[1]))
