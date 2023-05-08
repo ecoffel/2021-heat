@@ -36,8 +36,11 @@ dirAgData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edc
 dirEra5 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F20/ERA5'
 dirEra5Land = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoffel-F20/ERA5-Land'
 dirAg6 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/research/2020-ag-cmip6'
+dirSacks = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 # dirEra5 = '/dartfs-hpc/rc/lab/C/CMIG/ERA5'
+
+crop = 'Soybeans'
 
 #1981-1990
 #1990-2000
@@ -45,10 +48,11 @@ dirAg6 = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoff
 #2010-2018
 # years = [1961, 1981]
 # years = [1981, 2001]
+# years = [2001, 2021]
 # years = [1961, 1980]
-years = [1991, 2021]
+years = [1981, 2016]
 
-sacksMaizeNc = xr.open_dataset('%s/sacks/Maize.crop.calendar.fill.nc'%dirAgData)
+sacksMaizeNc = xr.open_dataset('%s/sacks/%s.crop.calendar.fill.nc'%(dirSacks, crop))
 sacksStart = sacksMaizeNc['plant'].values
 sacksStart = np.roll(sacksStart, -int(sacksStart.shape[1]/2), axis=1)
 sacksStart[sacksStart < 0] = np.nan
@@ -160,4 +164,4 @@ ds_grow_r_t_et['r_t_et'] = da_grow_r_t_et
 
 print('saving netcdf...')
 # ds_grow_r_t_et.to_netcdf('r_t_et_era5_crop_restricted_%d_%d.nc'%(years[0], years[1]))
-ds_grow_r_t_et.to_netcdf('r_t_et_era5_total_evaporation_%d_%d_detrend.nc'%(years[0], years[1]))
+ds_grow_r_t_et.to_netcdf('r_t_et_era5_total_evaporation_%d_%d_detrend-%s.nc'%(years[0], years[1], crop))
