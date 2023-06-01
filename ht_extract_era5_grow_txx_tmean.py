@@ -36,7 +36,7 @@ dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/e
 
 file_var = 'tasmax'
 orig_var = 'mx2t'
-crop = 'Maize'
+crop = 'Soybeans'
 
 year = int(sys.argv[1])
 
@@ -105,17 +105,17 @@ da_sm_deciles = xr.DataArray(data   = sm_deciles,
 
 
 # load et
-print('loading et')
-era5_et_deciles = xr.open_dataset('%s/era5_evaporation_deciles.nc'%dirHeatData)
-era5_et_deciles.load()
+# print('loading et')
+# era5_et_deciles = xr.open_dataset('%s/era5_evaporation_deciles.nc'%dirHeatData)
+# era5_et_deciles.load()
 
-era5_et = xr.open_dataset('%s/daily/evaporation_%d.nc'%(dirERA5, year))
-era5_et.load()
+# era5_et = xr.open_dataset('%s/daily/evaporation_%d.nc'%(dirERA5, year))
+# era5_et.load()
 
-era5_et_last_year = xr.open_dataset('%s/daily/evaporation_%d.nc'%(dirERA5, year-1))
-era5_et_last_year.load()
+# era5_et_last_year = xr.open_dataset('%s/daily/evaporation_%d.nc'%(dirERA5, year-1))
+# era5_et_last_year.load()
 
-era5_et_deciles_values = era5_et_deciles.e.values.copy()
+# era5_et_deciles_values = era5_et_deciles.e.values.copy()
 
 percentile_bins = np.arange(0, 101, 1)
 
@@ -152,7 +152,7 @@ for xlat in range(temp_era5.lat.size):
 
 yearly_grow_tmax = np.full([temp_era5.lat.size, temp_era5.lon.size], np.nan)
 yearly_grow_sm_on_tmax = np.full([temp_era5.lat.size, temp_era5.lon.size], np.nan)
-yearly_grow_et_on_tmax = np.full([temp_era5.lat.size, temp_era5.lon.size], np.nan)
+# yearly_grow_et_on_tmax = np.full([temp_era5.lat.size, temp_era5.lon.size], np.nan)
 yearly_grow_tmean = np.full([temp_era5.lat.size, temp_era5.lon.size], np.nan)
             
             
@@ -201,9 +201,9 @@ for xlat in range(temp_era5.lat.size):
                 curSm2 = sm_era5_regrid[:int(sacksEnd_regrid[xlat, ylon]), xlat, ylon].values
                 curSm = np.concatenate([curSm1, curSm2])
                 
-                curEt1 = era5_et_last_year['e'][int(sacksStart_regrid[xlat, ylon]):, xlat, ylon].values
-                curEt2 = era5_et['e'][:int(sacksEnd_regrid[xlat, ylon]), xlat, ylon].values
-                curEt = np.concatenate([curEt1, curEt2])
+#                 curEt1 = era5_et_last_year['e'][int(sacksStart_regrid[xlat, ylon]):, xlat, ylon].values
+#                 curEt2 = era5_et['e'][:int(sacksEnd_regrid[xlat, ylon]), xlat, ylon].values
+#                 curEt = np.concatenate([curEt1, curEt2])
 
                 if len(curTmax) > 0:
                     yearly_grow_tmax[xlat, ylon] = np.nanmax(curTmax)
@@ -214,9 +214,9 @@ for xlat in range(temp_era5.lat.size):
                         cur_p_ind = abs(cur_sm_deciles-curSm[max_ind]).argmin()
                         yearly_grow_sm_on_tmax[xlat, ylon] = percentile_bins[cur_p_ind]
                         
-                    if ~np.isnan(curEt[max_ind]):
-                        cur_p_ind = abs(cur_et_deciles-curEt[max_ind]).argmin()
-                        yearly_grow_et_on_tmax[xlat, ylon] = percentile_bins[cur_p_ind]
+#                     if ~np.isnan(curEt[max_ind]):
+#                         cur_p_ind = abs(cur_et_deciles-curEt[max_ind]).argmin()
+#                         yearly_grow_et_on_tmax[xlat, ylon] = percentile_bins[cur_p_ind]
 
                     yearly_grow_tmean[xlat, ylon] = np.nanmean(curTmax)
                 n += 1
@@ -225,7 +225,7 @@ for xlat in range(temp_era5.lat.size):
             else:
                 curTmax = temp_era5[orig_var][int(sacksStart_regrid[xlat, ylon]):int(sacksEnd_regrid[xlat, ylon]), xlat, ylon].values
                 curSm = sm_era5_regrid[int(sacksStart_regrid[xlat, ylon]):int(sacksEnd_regrid[xlat, ylon]), xlat, ylon].values
-                curEt = era5_et['e'][:int(sacksEnd_regrid[xlat, ylon]), xlat, ylon].values
+#                 curEt = era5_et['e'][:int(sacksEnd_regrid[xlat, ylon]), xlat, ylon].values
                 
                 if len(curTmax) > 0:
                     yearly_grow_tmax[xlat, ylon] = np.nanmax(curTmax)
@@ -236,9 +236,9 @@ for xlat in range(temp_era5.lat.size):
                         cur_p_ind = abs(cur_sm_deciles-curSm[max_ind]).argmin()
                         yearly_grow_sm_on_tmax[xlat, ylon] = percentile_bins[cur_p_ind]
                         
-                    if ~np.isnan(curEt[max_ind]):
-                        cur_p_ind = abs(cur_et_deciles-curEt[max_ind]).argmin()
-                        yearly_grow_et_on_tmax[xlat, ylon] = percentile_bins[cur_p_ind]
+#                     if ~np.isnan(curEt[max_ind]):
+#                         cur_p_ind = abs(cur_et_deciles-curEt[max_ind]).argmin()
+#                         yearly_grow_et_on_tmax[xlat, ylon] = percentile_bins[cur_p_ind]
                     
                     yearly_grow_tmean[xlat, ylon] = np.nanmean(curTmax)
                 n += 1
@@ -263,13 +263,13 @@ ds_grow_sm_on_tmax = xr.Dataset()
 ds_grow_sm_on_tmax['sm_grow_on_tmax'] = da_grow_sm_on_tmax
 
 
-da_grow_et_on_tmax = xr.DataArray(data   = yearly_grow_et_on_tmax, 
-                      dims   = ['lat', 'lon'],
-                      coords = {'time':year, 'lat':temp_era5.lat, 'lon':temp_era5.lon},
-                      attrs  = {'units'     : 'C'
-                        })
-ds_grow_et_on_tmax = xr.Dataset()
-ds_grow_et_on_tmax['et_grow_on_tmax'] = da_grow_et_on_tmax
+# da_grow_et_on_tmax = xr.DataArray(data   = yearly_grow_et_on_tmax, 
+#                       dims   = ['lat', 'lon'],
+#                       coords = {'time':year, 'lat':temp_era5.lat, 'lon':temp_era5.lon},
+#                       attrs  = {'units'     : 'C'
+#                         })
+# ds_grow_et_on_tmax = xr.Dataset()
+# ds_grow_et_on_tmax['et_grow_on_tmax'] = da_grow_et_on_tmax
 
 
 da_grow_tmean = xr.DataArray(data   = yearly_grow_tmean, 
@@ -281,7 +281,7 @@ ds_grow_tmean = xr.Dataset()
 ds_grow_tmean['%s_grow_mean'%file_var] = da_grow_tmean
 
 print('saving netcdf...')
-# ds_grow_tmax.to_netcdf('era5_txx_tmean/era5_%s_txx_%d.nc'%(crop, year))
-# ds_grow_tmean.to_netcdf('era5_txx_tmean/era5_%s_t_mean_%d.nc'%(crop, year))
-# ds_grow_sm_on_tmax.to_netcdf('era5_txx_tmean/era5_%s_sm_on_txx_%d.nc'%(crop, year))
-ds_grow_et_on_tmax.to_netcdf('era5_txx_tmean/era5_%s_et_on_txx_fixed_sign_%d.nc'%(crop, year))
+ds_grow_tmax.to_netcdf('era5_txx_tmean/era5_%s_txx_%d.nc'%(crop, year))
+ds_grow_tmean.to_netcdf('era5_txx_tmean/era5_%s_t_mean_%d.nc'%(crop, year))
+ds_grow_sm_on_tmax.to_netcdf('era5_txx_tmean/era5_%s_sm_on_txx_%d.nc'%(crop, year))
+# ds_grow_et_on_tmax.to_netcdf('era5_txx_tmean/era5_%s_et_on_txx_fixed_sign_%d.nc'%(crop, year))
