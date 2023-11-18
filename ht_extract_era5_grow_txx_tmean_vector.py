@@ -36,7 +36,7 @@ dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/e
 
 file_var = 'tasmax'
 orig_var = 'mx2t'
-crop = 'Soybeans'
+crop = 'Maize'
 
 year = int(sys.argv[1])
 
@@ -80,7 +80,9 @@ et_era5_deciles_values = et_era5_deciles.e.values.copy()
 sm_deciles = np.full([lat.size, lon.size, 101], np.nan)
 
 # print('opening sm datasets for %d'%year)
-sm_era5 = xr.open_mfdataset(['%s/daily/sm_%d.nc'%(dirEra5Land, year-1), '%s/daily/sm_%d.nc'%(dirEra5Land, year)], concat_dim='time')
+sm1_era5 = xr.open_mfdataset(['%s/daily/sm_layer_1_%d.nc'%(dirEra5Land, year-1), '%s/daily/sm_layer_1_%d.nc'%(dirEra5Land, year)], concat_dim='time')
+sm2_era5 = xr.open_mfdataset(['%s/daily/sm_layer_2_%d.nc'%(dirEra5Land, year-1), '%s/daily/sm_layer_2_%d.nc'%(dirEra5Land, year)], concat_dim='time')
+sm_era5 = sm1_era5.swvl1 + sm2_era5.swvl2
 sm_era5 = sm_era5.rename({'latitude':'lat', 'longitude':'lon'})
 
 # # load sm deciles
@@ -88,7 +90,7 @@ sm_deciles = np.full([101, 1801, 3600], np.nan)
 
 print('loading sm deciles')
 for xlat in range(0, sm_deciles.shape[1]):
-    with open('decile_bins/era5-land-sm-daily/sm_percentiles_%d.dat'%(xlat), 'rb') as f:
+    with open('decile_bins/era5-land-sm-daily/sm_percentiles_layer_1_and_2_%d.dat'%(xlat), 'rb') as f:
         tmp = pickle.load(f)
         sm_deciles[:, xlat, :] = tmp.T
 
@@ -107,10 +109,10 @@ regridMesh = xr.Dataset({'lat': (['lat'], temp_era5.lat),
 regridder_start = xe.Regridder(xr.DataArray(data=sacksStart, dims=['lat', 'lon'], coords={'lat':sacksLat, 'lon':sacksLon}), regridMesh, 'bilinear', reuse_weights=True)
 regridder_end = xe.Regridder(xr.DataArray(data=sacksEnd, dims=['lat', 'lon'], coords={'lat':sacksLat, 'lon':sacksLon}), regridMesh, 'bilinear', reuse_weights=True)
 
-regridder_sm_era5 = xe.Regridder(xr.DataArray(data=sm_era5.swvl1, dims=['time', 'lat', 'lon'], coords={'time':sm_era5.time, 'lat':sm_era5.lat, 'lon':sm_era5.lon}), regridMesh, 'bilinear', reuse_weights=True)
+regridder_sm_era5 = xe.Regridder(xr.DataArray(data=sm_era5, dims=['time', 'lat', 'lon'], coords={'time':sm_era5.time, 'lat':sm_era5.lat, 'lon':sm_era5.lon}), regridMesh, 'bilinear', reuse_weights=True)
 regridder_sm_deciles = xe.Regridder(xr.DataArray(data=da_sm_deciles, dims=['percentile', 'lat', 'lon'], coords={'percentile':np.arange(0,101,1), 'lat':sm_era5.lat, 'lon':sm_era5.lon}), regridMesh, 'bilinear', reuse_weights=True)
 
-sm_era5_regrid = regridder_sm_era5(sm_era5.swvl1)
+sm_era5_regrid = regridder_sm_era5(sm_era5)
 sm_deciles_regrid = regridder_sm_deciles(da_sm_deciles)
 
 sacksStart_regrid = regridder_start(sacksStart)
@@ -205,10 +207,9 @@ et_hottest_day_percentiles = xr.apply_ufunc(
 
 
 
-
 print('saving netcdf...')
-max_growing_season_temp.to_netcdf('era5_txx_tmean/era5_%s_txx_%d_vector.nc'%(crop, year))
-mean_growing_season_temp.to_netcdf('era5_txx_tmean/era5_%s_t_mean_%d_vector.nc'%(crop, year))
-sm_hottest_day_percentiles.to_netcdf('era5_txx_tmean/era5_%s_sm_on_txx_%d_vector.nc'%(crop, year))
-et_hottest_day_percentiles.to_netcdf('era5_txx_tmean/era5_%s_et_on_txx_%d_vector.nc'%(crop, year))
+# max_growing_season_temp.to_netcdf('era5_txx_tmean/era5_%s_txx_%d_vector.nc'%(crop, year))
+# mean_growing_season_temp.to_netcdf('era5_txx_tmean/era5_%s_t_mean_%d_vector.nc'%(crop, year))
+sm_hottest_day_percentiles.to_netcdf('era5_txx_tmean/era5_%s_sm_on_txx_%d_vector_2_layer.nc'%(crop, year))
+# et_hottest_day_percentiles.to_netcdf('era5_txx_tmean/era5_%s_et_on_txx_%d_vector.nc'%(crop, year))
 # ds_grow_et_on_tmax.to_netcdf('era5_txx_tmean/era5_%s_et_on_txx_fixed_sign_%d.nc'%(crop, year))

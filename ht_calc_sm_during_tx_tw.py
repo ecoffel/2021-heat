@@ -35,7 +35,8 @@ dirEra5Land = '/home/edcoffel/drive/MAX-Filer/Research/Climate-02/Data-02-edcoff
 dirHeatData = '/home/edcoffel/drive/MAX-Filer/Research/Climate-01/Personal-F20/edcoffel-F20/data/projects/2021-heat'
 
 # tx or tw 
-ref_var = 'tw'
+ref_var = 'tx'
+sm_layer = 2
 
 year = int(sys.argv[1])
 print(year)
@@ -68,18 +69,29 @@ lon = era5_hw_deciles.longitude.values
 sm_deciles = np.full([lat.size, lon.size, 101], np.nan)
 
 print('opening sm datasets for %d'%year)
-sm = xr.open_dataset('%s/daily/sm_%d.nc'%(dirEra5Land, year))
+if sm_layer == 1:
+    sm = xr.open_dataset('%s/daily/sm_layer_1_%d.nc'%(dirEra5Land, year))
+else:
+    sm1 = xr.open_dataset('%s/daily/sm_layer_1_%d.nc'%(dirEra5Land, year))
+    sm2 = xr.open_dataset('%s/daily/sm_layer_2_%d.nc'%(dirEra5Land, year))
+    sm = sm1.swvl1+sm2.swvl2
 sm.load()
 
-sm = sm.rename_dims({'latitude':'lat', 'longitude':'lon'})
+sm = sm.rename({'latitude':'lat', 'longitude':'lon'})
+
 
 # load huss deciles
 sm_deciles = np.full([101, 1801, 3600], np.nan)
 
 for xlat in range(0, sm_deciles.shape[1]):
-    with open('decile_bins/era5-land-sm-daily/sm_percentiles_%d.dat'%(xlat), 'rb') as f:
-        tmp = pickle.load(f)
-        sm_deciles[:, xlat, :] = tmp.T
+    if sm_layer == 1:
+        with open('decile_bins/era5-land-sm-daily/sm_percentiles_%d.dat'%(xlat), 'rb') as f:
+            tmp = pickle.load(f)
+            sm_deciles[:, xlat, :] = tmp.T
+    else:
+        with open('decile_bins/era5-land-sm-daily/sm_percentiles_layer_1_and_2_%d.dat'%(xlat), 'rb') as f:
+            tmp = pickle.load(f)
+            sm_deciles[:, xlat, :] = tmp.T
 
 da_sm_deciles = xr.DataArray(data   = sm_deciles, 
                           dims   = ['percentile', 'lat', 'lon'],
@@ -117,10 +129,10 @@ regridder_end = xe.Regridder(xr.DataArray(data=sacksEnd, dims=['lat', 'lon'], co
 sacksStart_regrid = regridder_start(sacksStart)
 sacksEnd_regrid = regridder_end(sacksEnd)
 
-regridder_sm_data = xe.Regridder(xr.DataArray(data=sm.swvl1, dims=['time', 'lat', 'lon'], coords={'time':sm.time, 'lat':sm.lat, 'lon':sm.lon}), regridMesh, 'bilinear', reuse_weights=True)
+regridder_sm_data = xe.Regridder(xr.DataArray(data=sm['swvl%d'%sm_layer], dims=['time', 'lat', 'lon'], coords={'time':sm.time, 'lat':sm.lat, 'lon':sm.lon}), regridMesh, 'bilinear', reuse_weights=True)
 regridder_sm_deciles = xe.Regridder(xr.DataArray(data=da_sm_deciles, dims=['percentile', 'lat', 'lon'], coords={'percentile':np.arange(0,101,1), 'lat':sm.lat, 'lon':sm.lon}), regridMesh, 'bilinear', reuse_weights=True)
 
-sm_data_regrid = regridder_sm_data(sm.swvl1)
+sm_data_regrid = regridder_sm_data(sm['swvl%d'%sm_layer])
 sm_deciles_regrid = regridder_sm_deciles(da_sm_deciles)
 
 n = 0
@@ -175,8 +187,12 @@ for xlat in lat_inds:
         
                 
 print('writing files...')
-with open('%s/heat-wave-days/sm-on-%s/era5_sm_on_%s_%d_%d.dat'%(dirHeatData, ref_var, ref_var, threshold_perc, year), 'wb') as f:
-    pickle.dump(sm_during_hw, f)
+if sm_layer == 1:
+    with open('%s/heat-wave-days/sm-on-%s/era5_sm_on_%s_%d_%d.dat'%(dirHeatData, ref_var, ref_var, threshold_perc, year), 'wb') as f:
+        pickle.dump(sm_during_hw, f)
+else:
+    with open('%s/heat-wave-days/sm-on-%s/era5_sm_layer_2_on_%s_%d_%d.dat'%(dirHeatData, ref_var, ref_var, threshold_perc, year), 'wb') as f:
+        pickle.dump(sm_during_hw, f)
     
 
 
